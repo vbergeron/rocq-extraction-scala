@@ -48,6 +48,9 @@ jobs:
       - name: Build Rocq
         if: steps.cache-rocq.outputs.cache-hit != 'true'
         # Outside the workspace, or dune would build it with the plugin
+        env:
+          # The opam switch is local to the workspace
+          OPAMSWITCH: ${{ github.workspace }}
         run: |
           git init -q "$RUNNER_TEMP/rocq-src"
           cd "$RUNNER_TEMP/rocq-src"
