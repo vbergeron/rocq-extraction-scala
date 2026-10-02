@@ -92,7 +92,11 @@ dune build @scalac
 ```
 
 compiles the Scala code printed by each test with `scalac` (Scala 3). It
-does nothing when `scalac` is not on the `PATH`. After adding a test, run
+does nothing when `scalac` is not on the `PATH`.
+
+CI (`.github/workflows/ci.yml`) builds Rocq from the branch above, then runs
+the tests and compiles their Scala output. The built Rocq is cached until the
+branch moves. After adding a test, run
 `dune build @gen --auto-promote` to regenerate `tests/dune.inc`, then
 `dune test --auto-promote` to record its output.
 

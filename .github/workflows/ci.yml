@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The plugin needs the extraction API of rocq-prover/rocq#22541. Until it
+  # is merged, Rocq is built from that branch of the fork.
+  ROCQ_REPO: https://github.com/vbergeron/rocq
+  ROCQ_BRANCH: extraction-external-languages
+  ROCQ_PREFIX: /home/runner/rocq-install
+  SCALA_VERSION: 3.7.3
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "4.14"
+
+      - name: Install OCaml dependencies
+        run: opam install -y dune zarith ocamlfind
+
+      - name: Find the Rocq commit
+        id: rocq
+        run: |
+          sha=$(git ls-remote "$ROCQ_REPO" "refs/heads/$ROCQ_BRANCH" | cut -f1)
+          test -n "$sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Rocq
+        id: cache-rocq
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.ROCQ_PREFIX }}
+          key: rocq-${{ runner.os }}-ocaml4.14-${{ steps.rocq.outputs.sha }}
+
+      - name: Build Rocq
+        if: steps.cache-rocq.outputs.cache-hit != 'true'
+        # Outside the workspace, or dune would build it with the plugin
+        env:
+          # The opam switch is local to the workspace
+          OPAMSWITCH: ${{ github.workspace }}
+        run: |
+          git init -q "$RUNNER_TEMP/rocq-src"
+          cd "$RUNNER_TEMP/rocq-src"
+          git fetch -q --depth 1 "$ROCQ_REPO" "${{ steps.rocq.outputs.sha }}"
+          git checkout -q FETCH_HEAD
+          opam exec -- ./configure -prefix "$ROCQ_PREFIX"
+          opam exec -- make dunestrap
+          opam exec -- dune build -p rocq-runtime,rocq-core
+          opam exec -- dune install -p rocq-runtime,rocq-core --prefix "$ROCQ_PREFIX"
+
+      - name: Use Rocq
+        run: |
+          echo "$ROCQ_PREFIX/bin" >> "$GITHUB_PATH"
+          echo "OCAMLPATH=$ROCQ_PREFIX/lib:$(opam var lib)" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: opam exec -- dune build
+
+      - name: Test
+        run: opam exec -- dune test
+
+      - name: Check that tests/dune.inc is up to date
+        run: opam exec -- dune build @gen
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Scala
+        run: |
+          curl -sSfL "https://github.com/scala/scala3/releases/download/$SCALA_VERSION/scala3-$SCALA_VERSION-x86_64-pc-linux.tar.gz" | tar xz -C "$HOME"
+          echo "$HOME/scala3-$SCALA_VERSION-x86_64-pc-linux/bin" >> "$GITHUB_PATH"
+
+      - name: Compile the extracted Scala code
+        run: |
+          scalac -version
+          opam exec -- dune build @scalac
