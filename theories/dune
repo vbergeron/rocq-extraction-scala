@@ -1,0 +1,5 @@
+(rocq.theory
+ (name ScalaExtraction)
+ (package rocq-extraction-scala)
+ (synopsis "Scala 3 extraction backend")
+ (plugins rocq-extraction-scala.plugin))
