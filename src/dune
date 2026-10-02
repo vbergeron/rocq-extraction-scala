@@ -1,0 +1,8 @@
+(library
+ (name extraction_scala_plugin)
+ (public_name rocq-extraction-scala.plugin)
+ (synopsis "Scala 3 extraction backend")
+ (libraries rocq-runtime.plugins.extraction))
+
+(rocq.pp
+ (modules g_scala_extraction))

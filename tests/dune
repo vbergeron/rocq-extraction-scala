@@ -1,0 +1,11 @@
+(include dune.inc)
+
+(rule
+ (alias gen)
+ (deps (glob_files *.v) gen.py)
+ (action
+  (with-stdout-to dune.inc.gen (run python3 gen.py))))
+
+(rule
+ (alias gen)
+ (action (diff dune.inc dune.inc.gen)))
