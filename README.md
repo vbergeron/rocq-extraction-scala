@@ -85,7 +85,14 @@ dune test
 ```
 
 Each `tests/*.v` file is run with `rocq c` and its output is compared with
-the matching `.out` file. After adding a test, run
+the matching `.out` file.
+
+```sh
+dune build @scalac
+```
+
+compiles the Scala code printed by each test with `scalac` (Scala 3). It
+does nothing when `scalac` is not on the `PATH`. After adding a test, run
 `dune build @gen --auto-promote` to regenerate `tests/dune.inc`, then
 `dune test --auto-promote` to record its output.
 
