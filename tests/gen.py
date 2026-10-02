@@ -1,5 +1,7 @@
 # Regenerates dune.inc: one rule per test, diffing the output of
-# `rocq c` against the .out file. Run with `dune build @gen --auto-promote`.
+# `rocq c` against the .out file, and one compiling that output with
+# scalac (alias scalac, only when scalac is installed).
+# Run with `dune build @gen --auto-promote`.
 import glob, os
 
 tests = sorted(os.path.splitext(f)[0] for f in glob.glob("*.v"))
@@ -16,4 +18,10 @@ for t in tests:
 (rule
  (alias runtest)
  (action (diff {t}.out {t}.log)))
+
+(rule
+ (alias scalac)
+ (enabled_if %{{bin-available:scalac}})
+ (deps check_scala.py {t}.log)
+ (action (run python3 check_scala.py {t}.log)))
 """)
