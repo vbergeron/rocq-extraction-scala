@@ -47,9 +47,10 @@ jobs:
 
       - name: Build Rocq
         if: steps.cache-rocq.outputs.cache-hit != 'true'
+        # Outside the workspace, or dune would build it with the plugin
         run: |
-          git init -q rocq-src
-          cd rocq-src
+          git init -q "$RUNNER_TEMP/rocq-src"
+          cd "$RUNNER_TEMP/rocq-src"
           git fetch -q --depth 1 "$ROCQ_REPO" "${{ steps.rocq.outputs.sha }}"
           git checkout -q FETCH_HEAD
           opam exec -- ./configure -prefix "$ROCQ_PREFIX"
