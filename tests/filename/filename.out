@@ -5,13 +5,3 @@ File "./filename.v", line 17, characters 0-32:
 The command has indeed failed with message:
 Modular extraction is not supported for Scala.
 Use Recursive Extraction or Extraction "file" to extract into a single file instead.
-object Answer_file {
-
-sealed trait Nat
-final case class O() extends Nat
-final case class S(_1: Nat) extends Nat
-
-
-val answer: Nat = S(S(O()))
-
-}

@@ -149,16 +149,20 @@ at runtime, and casts to class types are a single type check.
 dune test
 ```
 
-Each `tests/*.v` file is run with `rocq c` and its output is compared with
-the matching `.out` file. After adding a test, run
-`dune build @gen --auto-promote` to regenerate `tests/dune.inc`, then
-`dune test --auto-promote` to record its output.
+Each test is a directory `tests/<t>/` holding `<t>.v`, which is run with
+`rocq c`, and its expected output: `<t>.scala` when the output is a single
+Scala file, `<t>.out` otherwise (error messages, several extractions). A test
+writing a file with `Extraction "name"` has both: `<t>.out` for the output of
+`rocq c` and `<t>.scala` for `name.scala`. After adding a test (with an empty
+`<t>.out` if it needs one), run `dune build @gen --auto-promote` to
+regenerate `tests/dune.inc`, then `dune test --auto-promote` to record its
+output.
 
 ```sh
 dune build @scalac
 ```
 
-compiles the Scala code printed by each test with `scalac` (Scala 3). It does
+compiles the Scala code extracted by each test with `scalac` (Scala 3). It does
 nothing when `scalac` is not on the `PATH`.
 
 CI (`.github/workflows/ci.yml`) builds Rocq from `master`, runs the
