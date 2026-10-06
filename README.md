@@ -39,11 +39,11 @@ def addNat: Nat => Nat => Nat =
 
 The plugin uses the extraction plugin's API for external languages
 ([rocq-prover/rocq#22541](https://github.com/rocq-prover/rocq/pull/22541)).
-Until it is merged, build Rocq from that branch:
+Until it is in a release, build Rocq from `master`:
 
 ```sh
-opam pin add rocq-runtime git+https://github.com/vbergeron/rocq#extraction-external-languages
-opam pin add rocq-core git+https://github.com/vbergeron/rocq#extraction-external-languages
+opam pin add rocq-runtime git+https://github.com/rocq-prover/rocq#master
+opam pin add rocq-core git+https://github.com/rocq-prover/rocq#master
 ```
 
 ## Installation

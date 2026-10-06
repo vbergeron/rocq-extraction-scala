@@ -11,10 +11,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # The plugin needs the extraction API of rocq-prover/rocq#22541. Until it
-  # is merged, Rocq is built from that branch of the fork.
-  ROCQ_REPO: https://github.com/vbergeron/rocq
-  ROCQ_BRANCH: extraction-external-languages
+  # The plugin needs the extraction API of rocq-prover/rocq#22541, which is
+  # not in a release yet.
+  ROCQ_REPO: https://github.com/rocq-prover/rocq
+  ROCQ_BRANCH: master
   ROCQ_PREFIX: /home/runner/rocq-install
   SCALA_VERSION: 3.7.3
 
