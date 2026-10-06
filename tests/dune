@@ -2,7 +2,7 @@
 
 (rule
  (alias gen)
- (deps (glob_files *.v) gen.py)
+ (deps (glob_files_rec *.v) (glob_files_rec *.out) gen.py)
  (action
   (with-stdout-to dune.inc.gen (run python3 gen.py))))
 

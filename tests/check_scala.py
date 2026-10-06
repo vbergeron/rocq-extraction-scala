@@ -1,6 +1,6 @@
-# Compiles the Scala code printed in a test log with scalac. Each extracted
+# Compiles the Scala code in a test output with scalac. Each extracted
 # file (an optional [package] clause, then an [object] up to its closing
-# brace) is compiled on its own, as a log may contain several of them.
+# brace) is compiled on its own, as an output may contain several of them.
 import os, re, subprocess, sys, tempfile
 
 # String and char literals, whose braces are not counted
