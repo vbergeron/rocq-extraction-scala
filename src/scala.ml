@@ -438,6 +438,9 @@ let rec known_type ctx = function
     (match known_type ctx f with
      | None -> None
      | Some ty -> resolve_apply_type ctx (is_self_relative_call ctx.self f) ty args)
+  | MLcase (_, _, pv) when is_custom_match pv ->
+    (* A user-given match function's result is [Any]-typed. *)
+    None
   | MLcase (typ, _, pv) ->
     let pat_typ =
       if is_coinductive_type (State.get_table ctx.table) typ then Tunknown else typ
@@ -452,12 +455,13 @@ let rec known_type ctx = function
          | None -> false) rest -> Some ty0
      | _ -> None)
   | MLcons (_, r, _) as c
-    when not (is_native_char c) && not (is_native_string c) && not (is_inline_custom r) ->
+    when not (is_native_char c) && not (is_native_string c) ->
     (* The constructor's own inductive type, own type parameters left
        unspecified ([already_satisfies]'s [Tglob] case only compares
-       heads). Excluded: a native char/string literal or inline-custom
-       constructor prints as something else entirely, not a value of
-       the inductive's own case-class hierarchy. *)
+       heads). This holds for an [Extract Inductive]-replaced
+       constructor too: the type then prints as the replacement type,
+       of which the replacement constructor builds a value (e.g. [Nil]
+       and [List]). Excluded: a native char/string literal. *)
     Some (Tglob (get_ind r, []))
   | _ -> None
 
