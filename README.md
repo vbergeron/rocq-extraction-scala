@@ -68,6 +68,10 @@ The usual extraction commands then produce Scala 3 source.
 - `Set Extraction Scala Package "com.foo.bar".` adds a `package` clause at
   the top of every extracted file. `Unset Extraction Scala Package.`
   removes it.
+- `From ScalaExtraction Require Import ExtrScalaBasic.` extracts `bool`,
+  `option`, `unit`, `list`, `prod` and `sum` to Scala's `Boolean`, `Option`,
+  `Unit`, `List`, tuples and `Either` (and `sumbool`/`sumor` to `Boolean`/`Option`),
+  like `ExtrOcamlBasic` does for OCaml.
 - `Extract Inductive` and `Extract Constant` work as for the other
   languages. Literals are extracted natively when `ascii`/`string` are
   extracted to `Char`/`String`.

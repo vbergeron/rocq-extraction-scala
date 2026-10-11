@@ -35,6 +35,24 @@
   (action (run python3 ../check_scala.py basic.log))))
 
 (subdir
+ basic_types
+ (rule
+  (deps basic_types.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to basic_types.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction basic_types.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff basic_types.scala basic_types.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py basic_types.log)
+  (action (run python3 ../check_scala.py basic_types.log))))
+
+(subdir
  coinductive
  (rule
   (deps coinductive.v (package rocq-extraction-scala))
