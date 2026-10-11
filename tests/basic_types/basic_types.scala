@@ -20,6 +20,13 @@ def swap[t1, t2]: Tuple2[t1, t2] => Tuple2[t2, t1] =
      case (a, b) => (b, a)
      }).asInstanceOf[Tuple2[t2, t1]]
 
+def swapSum[t1, t2]: Either[t1, t2] => Either[t2, t1] =
+  (s: Either[t1, t2]) => 
+    (s match {
+     case Left(a) => Right(a)
+     case Right(b) => Left(b)
+     }).asInstanceOf[Either[t2, t1]]
+
 def isEmpty[t1]: List[t1] => Boolean =
   (l: List[t1]) => 
     (l match {

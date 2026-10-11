@@ -13,6 +13,7 @@ Extract Inductive list => "List" [ "Nil" "::" ].
 (* An empty constructor name prints [(a, b)], a Scala tuple, both as a
    term and as a pattern. *)
 Extract Inductive prod => "Tuple2" [ "" ].
+Extract Inductive sum => "Either" [ "Left" "Right" ].
 
 (** Same as [ExtrOcamlBasic]: [sumbool] and [sumor] as [bool] and
     [option], forgetting their logical content. *)
