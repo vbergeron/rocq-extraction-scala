@@ -105,8 +105,8 @@ type Pair0[a, b] = MkPair[a, b]
 def swapPair[t1, t2](p: Pair0[t1, t2]): Pair0[t2, t1] =
   MkPair[t2, t1](p.psnd, p.pfst)
 
-def primes(_n: Nat): Nat =
-  { val _m: Nat = S(_n); add(_m)(_m) }
+def primes(n: Nat): Nat =
+  { val m: Nat = S(n); add(m)(m) }
 
 }
 

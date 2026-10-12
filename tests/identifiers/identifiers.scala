@@ -23,33 +23,39 @@ def mapNat(f: Nat => Nat)(l: List[Nat]): List[Nat] =
   }
 
 def lam(l: List[Nat]): List[Nat] =
-  mapNat((_w: Nat) => S(_w))(mapNat((_v: Nat) => _v)(l))
+  mapNat((w: Nat) => S(w))(mapNat((v: Nat) => v)(l))
 
-def under(_x: Nat): Nat =
-  { val _y: Nat = S(_x);
-  _y match {
-  case O() => O()
-  case S(_z) => add(_z)(_y)
-  } }
+def under(x: Nat): Nat =
+  { val y: Nat = S(x); y match {
+                       case O() => O()
+                       case S(z) => add(z)(y)
+                       } }
 
-def localFix(_n: Nat): Nat =
+def localFix(n: Nat): Nat =
   ({
-     def _go: Nat => Nat => Nat =
-         (_k: Nat) => (_acc: Nat) => 
-         _k match {
-         case O() => _acc
-         case S(_p) => _go(_p)(S(_acc))
+     def go: Nat => Nat => Nat =
+         (k: Nat) => (acc: Nat) => 
+         k match {
+         case O() => acc
+         case S(p) => go(p)(S(acc))
          }
-     _go
-   })(_n)(O())
+     go
+   })(n)(O())
 
-def both(_x: Nat)(_x0: Nat): Nat =
-  add(add(_x0)(_x))(_x0)
+def both(x: Nat)(x0: Nat): Nat =
+  add(add(x0)(x))(x0)
 
-def _plus(n: Nat): Nat =
+def shadow(n: Nat): Nat =
+  { val n0: Nat = S(n); add(n0)(n) }
+
+def plus(n: Nat): Nat =
+  n
+
+def plus0(n: Nat): Nat =
   S(n)
 
-val usePlus: Nat => Nat = _plus
+def usePlus(n: Nat): Nat =
+  plus(plus0(n))
 
 }
 
