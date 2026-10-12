@@ -30,15 +30,15 @@ def pairList[t1]: Tuple2[t1, t1] => List[t1] =
 
 val appOne: List[Boolean] => List[Boolean] =
   (l: List[Boolean]) => 
-    app(l)((::(true, Nil)).asInstanceOf[List[Boolean]])
+    app(l)(::(true, Nil))
 
 val negAll: List[Boolean] => List[Boolean] =
   (l: List[Boolean]) => 
-    map(negb)((::(true, l)).asInstanceOf[List[Boolean]])
+    map(negb)(::(true, l))
 
 val negOpt: Boolean => Option[Boolean] =
   (b: Boolean) => 
-    option_map(negb)((Some(b)).asInstanceOf[Option[Boolean]])
+    option_map(negb)(Some(b))
 
 }
 

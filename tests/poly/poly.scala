@@ -31,10 +31,10 @@ def myMap[t1, t2]: (t1 => t2) => MyList[t1] => MyList[t2] =
 
 def myAppend[t1]: MyList[t1] => MyList[t1] => MyList[t1] =
     (l1: MyList[t1]) => (l2: MyList[t1]) => 
-    (l1 match {
-     case MyNil() => l2
-     case MyCons(a, t) => MyCons(a, myAppend[t1](t)(l2))
-     }).asInstanceOf[MyList[t1]]
+    l1 match {
+    case MyNil() => l2
+    case MyCons(a, t) => MyCons(a, myAppend[t1](t)(l2))
+    }
 
 def myFold[t1, t2]: (t2 => t1 => t2) => t2 => MyList[t1] => t2 =
     (f: t2 => t1 => t2) => (acc: t2) => (l: MyList[t1]) => 

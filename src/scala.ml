@@ -480,6 +480,17 @@ let rec is_foreign_generic_glob ctx = function
      | None -> false)
   | _ -> false
 
+(* Two branches' known types, as one: equal, or the same inductive known
+   once only by its head (a constructor value whose type arguments are
+   not all known, e.g. [Nil]) and once with its arguments - then the
+   latter, which the former's Scala value also has. *)
+let merge_known_types a b =
+  if eq_ml_type a b then Some a
+  else match a, b with
+    | Tglob (r1, []), Tglob (r2, _) when eq_glob_head r1 r2 -> Some b
+    | Tglob (r1, _), Tglob (r2, []) when eq_glob_head r1 r2 -> Some a
+    | _ -> None
+
 (* The statically known type of an already-built expression, using the
    same "known positions" as [tenv]/[glob_types] plus [MLapp]
    ([resolve_apply_type]) and an [MLcase] whose branches all agree
@@ -506,19 +517,42 @@ let rec known_type ctx = function
     in
     let tys = Array.to_list (Array.map branch_type pv) in
     (match tys with
-     | Some ty0 :: rest when List.for_all (function
-         | Some ty -> eq_ml_type ty ty0
-         | None -> false) rest -> Some ty0
+     | Some ty0 :: rest ->
+       List.fold_left
+         (fun acc ty -> match acc, ty with
+            | Some a, Some b -> merge_known_types a b
+            | _ -> None)
+         (Some ty0) rest
      | _ -> None)
-  | MLcons (_, r, _) as c
+  | MLcons (_, r, args) as c
     when not (is_native_char c) && not (is_native_string c) ->
-    (* The constructor's own inductive type, own type parameters left
-       unspecified ([already_satisfies]'s [Tglob] case only compares
-       heads). This holds for an [Extract Inductive]-replaced
-       constructor too: the type then prints as the replacement type,
-       of which the replacement constructor builds a value (e.g. [Nil]
-       and [List]). Excluded: a native char/string literal. *)
-    Some (Tglob (get_ind r, []))
+    (* The constructor's own inductive type. This holds for an [Extract
+       Inductive]-replaced constructor too: the type then prints as the
+       replacement type, of which the replacement constructor builds a
+       value (e.g. [Nil] and [List]). Its type arguments are inferred
+       from its fields, as Scala does: each inductive parameter pinned
+       by the known type of an argument ([bind_callee_tvars], the
+       inductive's parameters playing the callee's type variables);
+       left unspecified ([already_satisfies]'s [Tglob] case only
+       compares heads) unless all of them are. Excluded: a native
+       char/string literal. *)
+    let ind = get_ind r in
+    (match find_cons_fields r with
+     | Some (nparams, fts) when nparams > 0 && Int.equal (List.length fts) (List.length args) ->
+       let sigma =
+         List.fold_left2
+           (fun sigma ft arg ->
+              if is_foreign_generic_glob ctx arg then sigma
+              else match known_type ctx arg with
+                | Some a -> bind_callee_tvars sigma ft (devar' a)
+                | None -> sigma)
+           Int.Map.empty fts args
+       in
+       let params = List.init nparams (fun i -> Tvar (i+1)) in
+       if List.for_all (fully_pinned sigma) params
+       then Some (Tglob (ind, List.map (subst_callee_tvars sigma) params))
+       else Some (Tglob (ind, []))
+     | _ -> Some (Tglob (ind, [])))
   | _ -> None
 
 (* Whether argument [a] already provably has parameter type [t1],
