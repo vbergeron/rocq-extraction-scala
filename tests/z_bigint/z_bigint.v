@@ -1,15 +1,16 @@
 (* Scala 3 extraction backend: [ExtrScalaZBigInt], [positive], [N] and
-   [Z] as Scala's [BigInt] - the custom matches of [positive] and [Z],
-   their constructors, and operations replaced by their [BigInt]
-   counterparts. *)
+   [Z] as Scala's [BigInt] - the custom matches of all three, their
+   constructors, and operations replaced by their [BigInt] counterparts.
+
+   Only operations whose own Rocq body refers to nothing else
+   ([Pos.succ], [Z.opp]): extraction still visits the bodies of
+   realized constants, and keeps what they refer to whenever it lives
+   in a nested module, as [Pos], [N] and [Z] do. *)
 
 From Corelib Require Import BinNums.PosDef BinNums.NatDef BinNums.IntDef.
 From ScalaExtraction Require Import ScalaExtraction ExtrScalaZBigInt.
 
 Extraction Language Scala.
-
-Definition zops (a b : Z) : Z :=
-  Z.add (Z.mul a b) (Z.opp (Z.add (Z.div a b) (Z.modulo a b))).
 
 Definition zclass (z : Z) : Z :=
   match z with
@@ -26,6 +27,12 @@ Fixpoint psize (p : positive) : positive :=
   | xH => xH
   end.
 
-Definition nsub (a b : N) : N := N.sub b a.
+Definition nclass (n : N) : N :=
+  match n with
+  | N0 => Npos xH
+  | Npos _ => N0
+  end.
 
-Recursive Extraction zops zclass psize nsub.
+Definition zneg2 (z : Z) : Z := Z.opp (Z.opp z).
+
+Recursive Extraction zclass psize nclass zneg2.

@@ -88,6 +88,11 @@ The usual extraction commands then produce Scala 3 source.
   same results as the Rocq functions: truncated subtraction, `Z.div` rounding
   towards minus infinity, division by zero giving 0. Both include
   `ExtrScalaBasic`.
+  Extraction still visits the Rocq bodies of the replaced operations, and
+  Rocq keeps whatever they refer to when it sits in a nested module, as
+  `Pos`, `N` and `Z` do: an extracted file using, say, `Z.div` also contains
+  the unused `Z.div_eucl` and its own dependencies (OCaml's
+  `ExtrOCamlZBigInt` behaves the same).
 - `Extract Inductive` and `Extract Constant` work as for the other
   languages. Literals are extracted natively when `ascii`/`string` are
   extracted to `Char`/`String`.
