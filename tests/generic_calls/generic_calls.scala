@@ -19,8 +19,7 @@ def nestedFst[t1, t2]: Tuple2[t1, t2] => Tuple2[t2, t1] => t1 =
 
 val appMap: List[Boolean] => List[Boolean] =
   (l: List[Boolean]) => 
-    (app((((map(negb).asInstanceOf[Any => Any])(l))).asInstanceOf[List[Any]])((l).asInstanceOf[
-  List[Any]])).asInstanceOf[List[Boolean]]
+    app((map(negb)(l)))(l)
 
 }
 
