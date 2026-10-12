@@ -1,7 +1,9 @@
-(* Scala 3 extraction backend: binders whose name ends with [_] or ['] -
-   a space keeps the colon of their type ascription out of the
-   identifier - as lambda parameters, [let] and [match] binders, and in
-   a local fixpoint's parameters. *)
+(* Scala 3 extraction backend: names ending with [_] or ['], which
+   Scala identifiers must not (a colon after [x_] would be part of the
+   identifier [x_:]): their trailing underscores move to the front, [x_]
+   and [x'] both becoming [_x], told apart by a number when both are in
+   scope. As definitions, lambda parameters, [let] and [match] binders,
+   and a local fixpoint and its parameters. *)
 
 From ScalaExtraction Require Import ScalaExtraction.
 
@@ -23,11 +25,19 @@ Definition under (x_ : nat) : nat :=
   end.
 
 Definition localFix (n_ : nat) : nat :=
-  let fix go (k_ acc' : nat) : nat :=
+  let fix go_ (k_ acc' : nat) : nat :=
     match k_ with
     | 0 => acc'
-    | S p_ => go p_ (S acc')
+    | S p_ => go_ p_ (S acc')
     end
-  in go n_ 0.
+  in go_ n_ 0.
 
-Recursive Extraction lam under localFix.
+(* [x_] and [x'] in the same scope. *)
+Definition both (x_ x' : nat) : nat := x_ + x'.
+
+(* A global name. *)
+Definition plus' (n : nat) : nat := S n.
+
+Definition usePlus (n : nat) : nat := plus' n.
+
+Recursive Extraction lam under localFix both usePlus.

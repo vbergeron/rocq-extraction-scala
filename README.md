@@ -122,7 +122,7 @@ types erased, as for OCaml), which this plugin prints as Scala 3.
 | Lambda | Parameters with their types: `(x: Nat) => ...` |
 | Proofs and type arguments | Erased; an erased value that is still needed is `__` (`val __ : Unit = ()`) |
 | Axiom | `throw new RuntimeException("AXIOM TO BE REALIZED (...)")`, to replace with `Extract Constant` |
-| Identifiers | `'` becomes `_`; type names are capitalized; Scala keywords are renamed |
+| Identifiers | `'` becomes `_`, and trailing underscores move to the front (`n'` and `n_` become `_n`): Scala would read the colon of `n_: T` as part of the name. Type names are capitalized; Scala keywords are renamed |
 
 Everything is printed inside one `object`, so two extracted files can be
 compiled together without name clashes.

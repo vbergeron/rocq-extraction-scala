@@ -100,28 +100,30 @@ let keywords =
 let pp_comment s = str "// " ++ hov 0 s ++ fnl ()
 let pp_bracket_comment s = str "/* " ++ hov 0 s ++ str " */"
 
-(* Unlike OCaml, Scala identifiers cannot contain an apostrophe, which is
-   nonetheless a very common character in Rocq-chosen names (e.g. [n'],
-   [IHn']). We turn it into an underscore whenever we print an actual
-   local identifier (as opposed to a global reference, which already goes
-   through [Common.unquote], or a name only used inside a comment). *)
-let pr_id id = str (String.map (fun c -> if c == '\'' then '_' else c) (Id.to_string id))
-
-(* [id: ...]: when [id] ends with an underscore, Scala would read the
-   colon as part of the identifier ([x_:] is a valid name). *)
-let pr_id_colon id =
-  let s = Id.to_string id in
+(* A Rocq identifier as a Scala one. Scala identifiers cannot contain
+   an apostrophe, which is nonetheless very common in Rocq-chosen names
+   ([n'], [IHn']): it becomes an underscore. A Scala identifier must not
+   end with one either, since [x_: T] reads as the identifier [x_:], so
+   trailing underscores move to the front: [n'] and [n_] become [_n].
+   Used for local identifiers, before they are made unique (see
+   [ctx_push_vars]), and for global references ([unquote]). An
+   identifier made of underscores only ([_], [__]) is left as it is. *)
+let scala_ident s =
+  let s = String.map (fun c -> if c == '\'' then '_' else c) s in
   let n = String.length s in
-  pr_id id ++ str (if n > 1 && (s.[n-1] == '\'' || s.[n-1] == '_') then " : " else ": ")
+  let rec trailing k = if k < n && s.[n-1-k] == '_' then trailing (k+1) else k in
+  let k = trailing 0 in
+  if Int.equal k 0 || Int.equal k n then s
+  else String.make k '_' ^ String.sub s 0 (n-k)
+
+let pr_id id = str (scala_ident (Id.to_string id))
 
 (* Every extracted file's contents are wrapped in a single [object]
    named after the module (see [preamble]): [mod_name] cleaned up the
    same way [pr_id] does, capitalized to follow Scala's own naming
-   convention for an [object] - purely cosmetic, unlike the apostrophe
-   cleanup, since Scala does not actually require it. *)
-let pr_object_name mod_name =
-  str (String.capitalize_ascii
-         (String.map (fun c -> if c == '\'' then '_' else c) (Id.to_string mod_name)))
+   convention for an [object] - purely cosmetic, since Scala does not
+   actually require it. *)
+let pr_object_name mod_name = str (String.capitalize_ascii (scala_ident (Id.to_string mod_name)))
 
 let pp_header_comment = function
   | None -> mt ()
@@ -289,8 +291,14 @@ type ctx = {
   tvars : Id.t Int.Map.t;
 }
 
+(* Local names are turned into Scala identifiers ([scala_ident]) before
+   being made unique, so that two names becoming the same Scala
+   identifier ([n'] and [n_]) are told apart. *)
 let ctx_push_vars ids ctx =
-  let ids', env = push_vars ids ctx.env in
+  let scala id =
+    if id == dummy_name then id
+    else Id.of_string (scala_ident (String.uncapitalize_ascii (Id.to_string id))) in
+  let ids', env = push_vars (List.map scala ids) ctx.env in
   ids', { ctx with env }
 
 let ctx_add_tvars l ctx =
@@ -327,7 +335,7 @@ let tparam_names = List.map (fun k -> (k, Id.of_string ("t" ^ string_of_int k)))
 
 (* Parameters [(x: T) => ...], with their names already pushed. *)
 let pp_params ctx names params =
-  prlist (fun (id, (_, t)) -> str "(" ++ pr_id_colon id ++ pp_ty ctx false t ++ str ") => ")
+  prlist (fun (id, (_, t)) -> str "(" ++ pr_id id ++ str ": " ++ pp_ty ctx false t ++ str ") => ")
     (List.combine names params)
 
 (* Forces a fresh line at a small, fixed indent right after a leading
@@ -380,8 +388,7 @@ let rec pp_expr ctx par e =
       else str "def " in
     let ctx_a = ctx_add_tvars gens ctx in
     hv 0 (str "{ " ++ kw ++
-          hov 2 ((if List.is_empty gens then pr_id_colon (List.hd i)
-                 else pr_id (List.hd i) ++ pp_type_params (List.map snd gens) ++ str ": ") ++
+          hov 2 (pr_id (List.hd i) ++ pp_type_params (List.map snd gens) ++ str ": " ++
                  pp_ty ctx_a false a.ty ++ str " =" ++ spc () ++ pp_expr ctx_a false a) ++
           str ";" ++ spc () ++ pp_expr ctx' false b ++ str " }")
   | TCons (r, targs, args) -> pp_cons ctx e r targs args
@@ -589,7 +596,7 @@ let pp_definition table ~recursive name typ body =
     let names, ctx' = push_params ctx params in
     let pp_param i id (_, t) =
       let id = if Id.equal id dummy_name then Id.of_string ("__x" ^ string_of_int (i+1)) else id in
-      str "(" ++ pr_id_colon id ++ pp_ty ctx' false t ++ str ")"
+      str "(" ++ pr_id id ++ str ": " ++ pp_ty ctx' false t ++ str ")"
     in
     v 0 (hov 2 (str "def " ++ name ++ pp_type_params vl ++
                 prlist identity (List.mapi (fun i (id, p) -> pp_param i id p) (List.combine names params)) ++ str ": " ++
@@ -799,8 +806,7 @@ let scala_descr = {
   sig_preamble = (fun _ _ _ _ _ -> mt ());
   pp_sig = (fun _ _ -> mt ());
   pp_decl = pp_decl;
-  (* Scala identifiers cannot contain an apostrophe, unlike OCaml's. *)
-  unquote = String.map (fun c -> if c == '\'' then '_' else c);
+  unquote = scala_ident;
   upper_types = true;
   char_type = Some "Char";
   string_type = Some "String";
