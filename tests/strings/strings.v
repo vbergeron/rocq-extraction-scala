@@ -31,20 +31,18 @@ Extract Inductive string => "String"
       if (s.isEmpty) fE(()) else fS(s.head).asInstanceOf[Any => Any](s.tail))".
 
 (* Characters, least significant bit first. *)
-Notation ch_a := (Ascii true false false false false true true false).
-Notation ch_h := (Ascii false false false true false true true false).
-Notation ch_i := (Ascii true false false true false true true false).
-Notation ch_quote := (Ascii true true true false false true false false).
-Notation ch_dquote := (Ascii false true false false false true false false).
-Notation ch_backslash := (Ascii false false true true true false true false).
-Notation ch_newline := (Ascii false true false true false false false false).
-Notation ch_ctrlA := (Ascii true false false false false false false false).
+Abbreviation ch_a := (Ascii true false false false false true true false).
+Abbreviation ch_h := (Ascii false false false true false true true false).
+Abbreviation ch_i := (Ascii true false false true false true true false).
+Abbreviation ch_quote := (Ascii true true true false false true false false).
+Abbreviation ch_dquote := (Ascii false true false false false true false false).
+Abbreviation ch_backslash := (Ascii false false true true true false true false).
+Abbreviation ch_newline := (Ascii false true false true false false false false).
 
 Definition chA : ascii := ch_a.
 Definition chQuote : ascii := ch_quote.
 Definition chBackslash : ascii := ch_backslash.
 Definition chNewline : ascii := ch_newline.
-Definition chCtrlA : ascii := ch_ctrlA.
 
 Definition hi : string := String ch_h (String ch_i EmptyString).
 Definition escapes : string :=
@@ -67,5 +65,5 @@ Definition headOr (c : ascii) (s : string) : ascii :=
   | String c' _ => c'
   end.
 
-Recursive Extraction chA chQuote chBackslash chNewline chCtrlA hi escapes empty
+Recursive Extraction chA chQuote chBackslash chNewline hi escapes empty
   mkChar prepend strLength headOr.

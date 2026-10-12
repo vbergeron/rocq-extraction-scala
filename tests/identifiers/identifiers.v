@@ -1,7 +1,7 @@
 (* Scala 3 extraction backend: binders whose name ends with [_] or ['] -
    a space keeps the colon of their type ascription out of the
    identifier - as lambda parameters, [let] and [match] binders, and in
-   a local fixpoint. *)
+   a local fixpoint's parameters. *)
 
 From ScalaExtraction Require Import ScalaExtraction.
 
@@ -23,11 +23,11 @@ Definition under (x_ : nat) : nat :=
   end.
 
 Definition localFix (n_ : nat) : nat :=
-  let fix go_ (k_ acc' : nat) : nat :=
+  let fix go (k_ acc' : nat) : nat :=
     match k_ with
     | 0 => acc'
-    | S p_ => go_ p_ (S acc')
+    | S p_ => go p_ (S acc')
     end
-  in go_ n_ 0.
+  in go n_ 0.
 
 Recursive Extraction lam under localFix.

@@ -6,6 +6,8 @@ From ScalaExtraction Require Import ScalaExtraction ExtrScalaBasic.
 
 Extraction Language Scala.
 
+Local Open Scope list_scope.
+
 Definition pred2 (n : nat) : nat :=
   match n with
   | S (S m) => m
