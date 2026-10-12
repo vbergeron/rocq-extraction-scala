@@ -1,8 +1,8 @@
 object Main {
 
-def add: Int => Int => Int = ((n: Int) => (m: Int) => n + m)
+val add: Int => Int => Int = ((n: Int) => (m: Int) => n + m)
 
-def mul: Int => Int => Int = ((n: Int) => (m: Int) => n * m)
+val mul: Int => Int => Int = ((n: Int) => (m: Int) => n * m)
 
 def fact(n: Int): Int =
   ((((fO: Any => Any) => (fS: Any => Any) => (n: Int) =>

@@ -1,14 +1,14 @@
 object Main {
 
-def andb: Boolean => Boolean => Boolean = a => b => a && b
+val andb: Boolean => Boolean => Boolean = a => b => a && b
 
-def orb: Boolean => Boolean => Boolean = a => b => a || b
+val orb: Boolean => Boolean => Boolean = a => b => a || b
 
-def implb: Boolean => Boolean => Boolean = a => b => !a || b
+val implb: Boolean => Boolean => Boolean = a => b => !a || b
 
-def xorb: Boolean => Boolean => Boolean = a => b => a != b
+val xorb: Boolean => Boolean => Boolean = a => b => a != b
 
-def negb: Boolean => Boolean = b => !b
+val negb: Boolean => Boolean = b => !b
 
 def option_map[t1, t2]: (t1 => t2) => Option[t1] => Option[t2] = f => o => o.map(f)
 

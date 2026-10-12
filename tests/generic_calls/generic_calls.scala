@@ -1,6 +1,6 @@
 object Main {
 
-def negb: Boolean => Boolean = b => !b
+val negb: Boolean => Boolean = b => !b
 
 def option_map[t1, t2]: (t1 => t2) => Option[t1] => Option[t2] = f => o => o.map(f)
 

@@ -1270,12 +1270,11 @@ let pp_mind table i = match i.ind_kind with
    only when [typed_signature] can't decompose the type at all
    ([Taxiom]/[Tunknown]).
 
-   Always a [def] holding a function value, never a method with
-   parameter lists ([pp_method]): the replacement is the user's own
-   expression - typically a lambda like ["a => b => a && b"] - which a
-   method body would have to apply to its parameters. A [def] rather
-   than a [val] so that no other declaration of the [object] can read
-   it before it is initialized, whatever their order. *)
+   Always a value holding the user's expression - typically a lambda
+   like ["a => b => a && b"] - never a method with parameter lists
+   ([pp_method]), whose body would have to apply it to its parameters:
+   a [val], or a [def] when polymorphic ([val] can't carry type
+   parameters). *)
 let pp_custom_binding table name typ replacement =
   (* [str " "], not the breakable [spc ()]: a replacement string is
      opaque user text that Format could wrap onto a deeper-indented
@@ -1287,7 +1286,8 @@ let pp_custom_binding table name typ replacement =
   match typed_signature typ 0 with
   | None -> str "def " ++ name ++ str ": Any =" ++ str " " ++ str replacement
   | Some (vl, _, rest) ->
-    str "def " ++ name ++ pp_type_params vl ++ str ": " ++ pp_type table false vl rest ++
+    let kw = if List.is_empty vl then str "val " else str "def " in
+    kw ++ name ++ pp_type_params vl ++ str ": " ++ pp_type table false vl rest ++
     str " =" ++ str " " ++ str replacement
 
 let pp_decl table = function
