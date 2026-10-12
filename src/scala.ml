@@ -83,6 +83,13 @@ let pp_bracket_comment s = str "/* " ++ hov 0 s ++ str " */"
    through [Common.unquote], or a name only used inside a comment). *)
 let pr_id id = str (String.map (fun c -> if c == '\'' then '_' else c) (Id.to_string id))
 
+(* [id: ...]: when [id] ends with an underscore, Scala would read the
+   colon as part of the identifier ([x_:] is a valid name). *)
+let pr_id_colon id =
+  let s = Id.to_string id in
+  let n = String.length s in
+  pr_id id ++ str (if n > 1 && (s.[n-1] == '\'' || s.[n-1] == '_') then " : " else ": ")
+
 (* Every extracted file's contents are wrapped in a single [object]
    named after the module (see [preamble]): [mod_name] cleaned up the
    same way [pr_id] does, capitalized to follow Scala's own naming
@@ -294,7 +301,7 @@ let tparam_names = List.map (fun k -> (k, Id.of_string ("t" ^ string_of_int k)))
 
 (* Parameters [(x: T) => ...], with their names already pushed. *)
 let pp_params ctx names params =
-  prlist (fun (id, (_, t)) -> str "(" ++ pr_id id ++ str ": " ++ pp_ty ctx false t ++ str ") => ")
+  prlist (fun (id, (_, t)) -> str "(" ++ pr_id_colon id ++ pp_ty ctx false t ++ str ") => ")
     (List.combine names params)
 
 (* Forces a fresh line at a small, fixed indent right after a leading
@@ -347,7 +354,8 @@ let rec pp_expr ctx par e =
       else str "def " in
     let ctx_a = ctx_add_tvars gens ctx in
     hv 0 (str "{ " ++ kw ++
-          hov 2 (pr_id (List.hd i) ++ pp_type_params (List.map snd gens) ++ str ": " ++
+          hov 2 ((if List.is_empty gens then pr_id_colon (List.hd i)
+                 else pr_id (List.hd i) ++ pp_type_params (List.map snd gens) ++ str ": ") ++
                  pp_ty ctx_a false a.ty ++ str " =" ++ spc () ++ pp_expr ctx_a false a) ++
           str ";" ++ spc () ++ pp_expr ctx' false b ++ str " }")
   | TCons (r, targs, args) -> pp_cons ctx e r targs args
