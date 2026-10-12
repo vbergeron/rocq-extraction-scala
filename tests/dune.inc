@@ -125,6 +125,24 @@
   (action (run python3 ../check_scala.py custom_nat.log))))
 
 (subdir
+ dummy_params
+ (rule
+  (deps dummy_params.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to dummy_params.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction dummy_params.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff dummy_params.scala dummy_params.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py dummy_params.log)
+  (action (run python3 ../check_scala.py dummy_params.log))))
+
+(subdir
  filename
  (rule
   (targets filename.log answer_file.scala)
@@ -166,6 +184,132 @@
   (action (run python3 ../check_scala.py generic_calls.log))))
 
 (subdir
+ header_comment
+ (rule
+  (deps header_comment.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to header_comment.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction header_comment.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff header_comment.scala header_comment.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py header_comment.log)
+  (action (run python3 ../check_scala.py header_comment.log))))
+
+(subdir
+ identifiers
+ (rule
+  (deps identifiers.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to identifiers.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction identifiers.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff identifiers.scala identifiers.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py identifiers.log)
+  (action (run python3 ../check_scala.py identifiers.log))))
+
+(subdir
+ inlined
+ (rule
+  (deps inlined.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to inlined.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction inlined.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff inlined.scala inlined.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py inlined.log)
+  (action (run python3 ../check_scala.py inlined.log))))
+
+(subdir
+ keywords
+ (rule
+  (deps keywords.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to keywords.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction keywords.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff keywords.scala keywords.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py keywords.log)
+  (action (run python3 ../check_scala.py keywords.log))))
+
+(subdir
+ local_mutual_fix
+ (rule
+  (deps local_mutual_fix.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to local_mutual_fix.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction local_mutual_fix.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff local_mutual_fix.scala local_mutual_fix.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py local_mutual_fix.log)
+  (action (run python3 ../check_scala.py local_mutual_fix.log))))
+
+(subdir
+ logical_empty
+ (rule
+  (deps logical_empty.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to logical_empty.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction logical_empty.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff logical_empty.scala logical_empty.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py logical_empty.log)
+  (action (run python3 ../check_scala.py logical_empty.log))))
+
+(subdir
+ modules
+ (rule
+  (deps modules.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to modules.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction modules.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff modules.scala modules.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py modules.log)
+  (action (run python3 ../check_scala.py modules.log))))
+
+(subdir
  mutual
  (rule
   (deps mutual.v (package rocq-extraction-scala))
@@ -182,6 +326,24 @@
   (enabled_if %{bin-available:scalac})
   (deps ../check_scala.py mutual.log)
   (action (run python3 ../check_scala.py mutual.log))))
+
+(subdir
+ mutual_ind
+ (rule
+  (deps mutual_ind.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to mutual_ind.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction mutual_ind.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff mutual_ind.scala mutual_ind.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py mutual_ind.log)
+  (action (run python3 ../check_scala.py mutual_ind.log))))
 
 (subdir
  nat_bigint
@@ -220,6 +382,24 @@
   (action (run python3 ../check_scala.py package.log))))
 
 (subdir
+ patterns
+ (rule
+  (deps patterns.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to patterns.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction patterns.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff patterns.scala patterns.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py patterns.log)
+  (action (run python3 ../check_scala.py patterns.log))))
+
+(subdir
  poly
  (rule
   (deps poly.v (package rocq-extraction-scala))
@@ -236,6 +416,24 @@
   (enabled_if %{bin-available:scalac})
   (deps ../check_scala.py poly.log)
   (action (run python3 ../check_scala.py poly.log))))
+
+(subdir
+ pure_custom_match
+ (rule
+  (deps pure_custom_match.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to pure_custom_match.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction pure_custom_match.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff pure_custom_match.scala pure_custom_match.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py pure_custom_match.log)
+  (action (run python3 ../check_scala.py pure_custom_match.log))))
 
 (subdir
  pure_functions
@@ -272,6 +470,60 @@
   (enabled_if %{bin-available:scalac})
   (deps ../check_scala.py records.log)
   (action (run python3 ../check_scala.py records.log))))
+
+(subdir
+ singleton_keep
+ (rule
+  (deps singleton_keep.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to singleton_keep.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction singleton_keep.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff singleton_keep.scala singleton_keep.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py singleton_keep.log)
+  (action (run python3 ../check_scala.py singleton_keep.log))))
+
+(subdir
+ strings
+ (rule
+  (deps strings.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to strings.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction strings.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff strings.scala strings.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py strings.log)
+  (action (run python3 ../check_scala.py strings.log))))
+
+(subdir
+ type_defs
+ (rule
+  (deps type_defs.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to type_defs.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction type_defs.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff type_defs.scala type_defs.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py type_defs.log)
+  (action (run python3 ../check_scala.py type_defs.log))))
 
 (subdir
  typing
