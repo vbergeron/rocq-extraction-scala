@@ -12,6 +12,7 @@ Fixpoint fact (n : nat) : nat :=
   | S p => n * fact p
   end.
 
-Definition ops (a b : nat) : bool := Nat.leb (a - b) (a / b + a mod b).
+Definition ops (a b : nat) : bool :=
+  Nat.leb (a - b) (Nat.div a b + Nat.modulo a b).
 
 Recursive Extraction fact ops.
