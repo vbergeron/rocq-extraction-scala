@@ -201,3 +201,21 @@
   (deps ../check_scala.py records.log)
   (action (run python3 ../check_scala.py records.log))))
 
+(subdir
+ typing
+ (rule
+  (deps typing.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to typing.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction typing.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff typing.scala typing.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py typing.log)
+  (action (run python3 ../check_scala.py typing.log))))
+

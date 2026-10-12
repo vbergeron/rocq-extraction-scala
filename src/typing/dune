@@ -1,0 +1,5 @@
+(library
+ (name mltyping)
+ (public_name rocq-extraction-scala.typing)
+ (synopsis "Type reconstruction for MiniML, independent of the target language")
+ (libraries rocq-runtime.plugins.extraction))
