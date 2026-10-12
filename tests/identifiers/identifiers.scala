@@ -43,7 +43,8 @@ def localFix(_n: Nat): Nat =
      _go
    })(_n)(O())
 
-val both: Nat => Nat => Nat = add
+def both(_x: Nat)(_x0: Nat): Nat =
+  add(add(_x0)(_x))(_x0)
 
 def _plus(n: Nat): Nat =
   S(n)
