@@ -410,19 +410,86 @@ let pp_coinductive_force_target ctx typ =
     ++ str "]"
   | _ -> str "RocqLazy[Any]"
 
+(* A callee's type variables, as matched against the caller's own types:
+   [Some ty] once a variable is pinned to the caller-side type [ty],
+   [None] when two arguments pin it inconsistently. *)
+type callee_subst = ml_type option Int.Map.t
+
+(* Matches a callee's parameter type [pat] against the caller-side type
+   [actual] of the argument it gets, extending [sigma] with each callee
+   type variable it pins. Only a type Scala itself would infer from the
+   argument pins a variable: never [Any] ([Tunknown]) or an erased or
+   axiomatic type, and a [Tglob] known only by its head (a constructor
+   value, see [known_type]) pins none of its type arguments. *)
+let rec bind_callee_tvars (sigma : callee_subst) pat actual =
+  match pat, actual with
+  | (Tvar _ | Tvar' _), (Tunknown | Taxiom | Tdummy _ | Tmeta _) -> sigma
+  | (Tvar i | Tvar' i), a ->
+    Int.Map.update i (function
+        | None -> Some (Some a)
+        | Some (Some b) when eq_ml_type a b -> Some (Some b)
+        | Some _ -> Some None) sigma
+  | Tarr (p1,p2), Tarr (a1,a2) -> bind_callee_tvars (bind_callee_tvars sigma p1 a1) p2 a2
+  | Tglob (r1,l1), Tglob (r2,l2)
+    when eq_glob_head r1 r2 && Int.equal (List.length l1) (List.length l2) ->
+    List.fold_left2 bind_callee_tvars sigma l1 l2
+  | _ -> sigma
+
+let rec subst_callee_tvars (sigma : callee_subst) = function
+  | (Tvar i | Tvar' i) as t ->
+    (match Int.Map.find_opt i sigma with Some (Some a) -> a | _ -> t)
+  | Tarr (a,b) -> Tarr (subst_callee_tvars sigma a, subst_callee_tvars sigma b)
+  | Tglob (r,l) -> Tglob (r, List.map (subst_callee_tvars sigma) l)
+  | t -> t
+
 (* The state threaded through one curried application by
    [apply_one_step]/[resolve_apply_type]/[pp_apply_typed]: the callee's
    remaining type, and the two sets of type variables pinned so far -
    [pinned_real] to a type an argument already provably has,
-   [pinned_any] to [Any] by a previous step's cast. Named fields, not a
-   plain tuple: [pinned_real] and [pinned_any] are both [Int.Set.t], and
-   a positional mix-up between them would still type-check while
-   silently choosing the wrong casts. *)
+   [pinned_any] to [Any] by a previous step's cast - and, for a callee
+   other than the caller itself, the caller-side types its type
+   variables are pinned to so far ([sigma], see [bind_callee_tvars]).
+   Named fields, not a plain tuple: [pinned_real] and [pinned_any] are
+   both [Int.Set.t], and a positional mix-up between them would still
+   type-check while silently choosing the wrong casts. *)
 type apply_state = {
   ty : ml_type option;
   pinned_real : Int.Set.t;
   pinned_any : Int.Set.t;
+  sigma : callee_subst;
 }
+
+let init_apply_state ty =
+  { ty; pinned_real = Int.Set.empty; pinned_any = Int.Set.empty; sigma = Int.Map.empty }
+
+(* Every type variable of [t] pinned to a caller-side type in [sigma]. *)
+let fully_pinned (sigma : callee_subst) t =
+  Int.Set.for_all
+    (fun i -> match Int.Map.find_opt i sigma with Some (Some _) -> true | _ -> false)
+    (tvars_of t)
+
+(* A reference to a generic top-level definition other than [ctx.self],
+   passed around as a value: its [find_glob_type] is phrased in its own
+   type variables, not the caller's, so it can't pin anything. *)
+let rec is_foreign_generic_glob ctx = function
+  | MLmagic a -> is_foreign_generic_glob ctx a
+  | MLglob r as f ->
+    not (is_self_call ctx.self f) &&
+    (match find_glob_type r with
+     | Some t -> not (Int.Set.is_empty (tvars_of t))
+     | None -> false)
+  | _ -> false
+
+(* Two branches' known types, as one: equal, or the same inductive known
+   once only by its head (a constructor value whose type arguments are
+   not all known, e.g. [Nil]) and once with its arguments - then the
+   latter, which the former's Scala value also has. *)
+let merge_known_types a b =
+  if eq_ml_type a b then Some a
+  else match a, b with
+    | Tglob (r1, []), Tglob (r2, _) when eq_glob_head r1 r2 -> Some b
+    | Tglob (r1, _), Tglob (r2, []) when eq_glob_head r1 r2 -> Some a
+    | _ -> None
 
 (* The statically known type of an already-built expression, using the
    same "known positions" as [tenv]/[glob_types] plus [MLapp]
@@ -450,19 +517,42 @@ let rec known_type ctx = function
     in
     let tys = Array.to_list (Array.map branch_type pv) in
     (match tys with
-     | Some ty0 :: rest when List.for_all (function
-         | Some ty -> eq_ml_type ty ty0
-         | None -> false) rest -> Some ty0
+     | Some ty0 :: rest ->
+       List.fold_left
+         (fun acc ty -> match acc, ty with
+            | Some a, Some b -> merge_known_types a b
+            | _ -> None)
+         (Some ty0) rest
      | _ -> None)
-  | MLcons (_, r, _) as c
+  | MLcons (_, r, args) as c
     when not (is_native_char c) && not (is_native_string c) ->
-    (* The constructor's own inductive type, own type parameters left
-       unspecified ([already_satisfies]'s [Tglob] case only compares
-       heads). This holds for an [Extract Inductive]-replaced
-       constructor too: the type then prints as the replacement type,
-       of which the replacement constructor builds a value (e.g. [Nil]
-       and [List]). Excluded: a native char/string literal. *)
-    Some (Tglob (get_ind r, []))
+    (* The constructor's own inductive type. This holds for an [Extract
+       Inductive]-replaced constructor too: the type then prints as the
+       replacement type, of which the replacement constructor builds a
+       value (e.g. [Nil] and [List]). Its type arguments are inferred
+       from its fields, as Scala does: each inductive parameter pinned
+       by the known type of an argument ([bind_callee_tvars], the
+       inductive's parameters playing the callee's type variables);
+       left unspecified ([already_satisfies]'s [Tglob] case only
+       compares heads) unless all of them are. Excluded: a native
+       char/string literal. *)
+    let ind = get_ind r in
+    (match find_cons_fields r with
+     | Some (nparams, fts) when nparams > 0 && Int.equal (List.length fts) (List.length args) ->
+       let sigma =
+         List.fold_left2
+           (fun sigma ft arg ->
+              if is_foreign_generic_glob ctx arg then sigma
+              else match known_type ctx arg with
+                | Some a -> bind_callee_tvars sigma ft (devar' a)
+                | None -> sigma)
+           Int.Map.empty fts args
+       in
+       let params = List.init nparams (fun i -> Tvar (i+1)) in
+       if List.for_all (fully_pinned sigma) params
+       then Some (Tglob (ind, List.map (subst_callee_tvars sigma) params))
+       else Some (Tglob (ind, []))
+     | _ -> Some (Tglob (ind, [])))
   | _ -> None
 
 (* Whether argument [a] already provably has parameter type [t1],
@@ -488,8 +578,21 @@ and already_satisfies ctx a t1 = match t1, known_type ctx a with
    tracking entirely and makes a bare [Tvar] parameter *not*
    automatically safe the way [Tunknown] still is: the current
    definition's own type parameters are already fixed, real types, not
-   free ones a cast to [Any] could safely stand in for. *)
+   free ones a cast to [Any] could safely stand in for.
+
+   For a callee other than the caller, an argument applied as is also
+   pins the callee's type variables ([sigma]). A later parameter whose
+   variables are all pinned that way is checked against its translation
+   into the caller's types instead of falling back: applied as is when
+   the argument is known to have exactly that type, cast to it
+   ([`CastCaller], printed in the caller's own type names) otherwise. *)
 and apply_one_step ctx self_relative st arg =
+  let pin t1 =
+    if self_relative || is_foreign_generic_glob ctx arg then st.sigma
+    else match known_type ctx arg with
+      | Some a -> bind_callee_tvars st.sigma t1 (devar' a)
+      | None -> st.sigma
+  in
   match st.ty with
   | Some (Tarr (t1,t2))
     when self_relative || Int.Set.is_empty (Int.Set.inter st.pinned_real (tvars_of t1)) ->
@@ -499,24 +602,54 @@ and apply_one_step ctx self_relative st arg =
       | Tglob _ | Tarr _ | Tdummy _ | Taxiom -> false
     in
     if safely_any then
-      `Direct None, { st with ty = Some t2 }
+      `Direct None, { st with ty = Some t2; sigma = pin t1 }
     else if (self_relative || Int.Set.is_empty (Int.Set.inter st.pinned_any (tvars_of t1)))
             && already_satisfies ctx arg t1 then
-      `Direct None, { st with ty = Some t2; pinned_real = Int.Set.union st.pinned_real (tvars_of t1) }
+      `Direct None, { st with ty = Some t2; sigma = pin t1;
+                              pinned_real = Int.Set.union st.pinned_real (tvars_of t1) }
     else
       `Direct (Some t1), { st with ty = Some t2; pinned_any = Int.Set.union st.pinned_any (tvars_of t1) }
+  | Some (Tarr (t1,t2))
+    when Int.Set.is_empty (Int.Set.inter st.pinned_any (tvars_of t1))
+         && fully_pinned st.sigma t1 ->
+    let t1' = subst_callee_tvars st.sigma t1 in
+    let exact =
+      not (is_foreign_generic_glob ctx arg) &&
+      (match known_type ctx arg with
+       | Some a -> eq_ml_type (devar' a) t1'
+       | None -> false)
+    in
+    if exact then `Direct None, { st with ty = Some t2 }
+    else `CastCaller t1', { st with ty = Some t2 }
   | _ -> `Fallback, { st with ty = None }
 
 (* The type a whole (possibly partial) application [ty] applied to
    [args] would end up with if printed by [pp_apply_typed] - folds
-   [apply_one_step] over [args], [None] as soon as any step falls back. *)
+   [apply_one_step] over [args], [None] as soon as any step falls back.
+
+   A self-relative call's type is already phrased in the caller's own
+   type variables. Any other callee's is phrased in *its* own: each of
+   them is translated into the caller-side type an argument applied
+   as is pins it to ([bind_callee_tvars]), the way Scala infers it, and
+   the result is known only when every variable it mentions is pinned
+   that way. An argument cast to an [Any]-instantiated type pins its
+   variables to [Any] on the Scala side, so they stay unknown, and the
+   caller casts the result instead of trusting the callee's raw
+   [List[T1]] to be its own [List[A]] (or [T1] to be its own [t1]). *)
 and resolve_apply_type ctx self_relative ty args =
   let final =
     List.fold_left
       (fun st arg -> snd (apply_one_step ctx self_relative st arg))
-      { ty = Some ty; pinned_real = Int.Set.empty; pinned_any = Int.Set.empty } args
+      (init_apply_state (Some ty)) args
   in
-  final.ty
+  if self_relative then final.ty
+  else match final.ty with
+    | None -> None
+    | Some t ->
+      if Int.Set.is_empty (Int.Set.inter final.pinned_any (tvars_of t))
+         && fully_pinned final.sigma t
+      then Some (subst_callee_tvars final.sigma t)
+      else None
 
 (* Sibling fields of one constructor call can share an inductive type
    parameter (e.g. [Scons : A -> stream A -> stream A] has [A] in both
@@ -592,9 +725,14 @@ let pp_apply_typed ctx hd ty self_relative par args = match args with
                         pp_cast_target ctx self_relative t1 ++ str "]"
              in
              (acc ++ str "(" ++ pp_a ++ str ")"), st'
+           | `CastCaller t1, st' ->
+             let pp_a = str "(" ++ pp_a ++ str ").asInstanceOf[" ++
+                        pp_cast_target ctx true t1 ++ str "]"
+             in
+             (acc ++ str "(" ++ pp_a ++ str ")"), st'
            | `Fallback, st' ->
              (str "(" ++ acc ++ str ".asInstanceOf[Any => Any])(" ++ pp_a ++ str ")"), st')
-        (hd, { ty; pinned_real = Int.Set.empty; pinned_any = Int.Set.empty }) args
+        (hd, init_apply_state ty) args
     in
     pp_par par doc
 

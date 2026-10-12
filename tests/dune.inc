@@ -130,6 +130,24 @@
   (action (run python3 ../check_scala.py answer_file.scala))))
 
 (subdir
+ generic_calls
+ (rule
+  (deps generic_calls.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to generic_calls.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction generic_calls.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff generic_calls.scala generic_calls.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py generic_calls.log)
+  (action (run python3 ../check_scala.py generic_calls.log))))
+
+(subdir
  mutual
  (rule
   (deps mutual.v (package rocq-extraction-scala))
