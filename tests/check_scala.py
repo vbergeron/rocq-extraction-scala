@@ -1,6 +1,7 @@
 # Compiles the Scala code in a test output with scalac. Each extracted
-# file (an optional [package] clause, then an [object] up to its closing
-# brace) is compiled on its own, as an output may contain several of them.
+# file (an optional [package] clause, an optional language [import], then
+# an [object] up to its closing brace) is compiled on its own, as an output
+# may contain several of them.
 import os, re, subprocess, sys, tempfile
 
 # String and char literals, whose braces are not counted
@@ -9,7 +10,7 @@ LITERALS = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])\'')
 log = sys.argv[1]
 chunks, cur, depth = [], None, 0
 for line in open(log):
-    if cur is None and (line.startswith("package ") or line.startswith("object ")):
+    if cur is None and line.startswith(("package ", "import ", "object ")):
         cur, depth = [], 0
     if cur is not None:
         cur.append(line)

@@ -148,6 +148,24 @@
   (action (run python3 ../check_scala.py answer_file.scala))))
 
 (subdir
+ generic_calls
+ (rule
+  (deps generic_calls.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to generic_calls.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction generic_calls.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff generic_calls.scala generic_calls.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py generic_calls.log)
+  (action (run python3 ../check_scala.py generic_calls.log))))
+
+(subdir
  mutual
  (rule
   (deps mutual.v (package rocq-extraction-scala))
@@ -164,6 +182,24 @@
   (enabled_if %{bin-available:scalac})
   (deps ../check_scala.py mutual.log)
   (action (run python3 ../check_scala.py mutual.log))))
+
+(subdir
+ nat_bigint
+ (rule
+  (deps nat_bigint.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to nat_bigint.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction nat_bigint.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff nat_bigint.scala nat_bigint.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py nat_bigint.log)
+  (action (run python3 ../check_scala.py nat_bigint.log))))
 
 (subdir
  package
@@ -202,6 +238,24 @@
   (action (run python3 ../check_scala.py poly.log))))
 
 (subdir
+ pure_functions
+ (rule
+  (deps pure_functions.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to pure_functions.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction pure_functions.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff pure_functions.out pure_functions.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py pure_functions.log)
+  (action (run python3 ../check_scala.py pure_functions.log))))
+
+(subdir
  records
  (rule
   (deps records.v (package rocq-extraction-scala))
@@ -236,4 +290,22 @@
   (enabled_if %{bin-available:scalac})
   (deps ../check_scala.py typing.log)
   (action (run python3 ../check_scala.py typing.log))))
+
+(subdir
+ z_bigint
+ (rule
+  (deps z_bigint.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to z_bigint.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction z_bigint.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff z_bigint.scala z_bigint.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py z_bigint.log)
+  (action (run python3 ../check_scala.py z_bigint.log))))
 

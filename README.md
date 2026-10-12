@@ -25,12 +25,11 @@ final case class O() extends Nat
 final case class S(_1: Nat) extends Nat
 
 
-def addNat: Nat => Nat => Nat =
-    (n: Nat) => (m: Nat) => 
-    n match {
-    case O() => m
-    case S(p) => S(addNat(p)(m))
-    }
+def addNat(n: Nat)(m: Nat): Nat =
+  n match {
+  case O() => m
+  case S(p) => S(addNat(p)(m))
+  }
 
 }
 ```
@@ -68,12 +67,32 @@ The usual extraction commands then produce Scala 3 source.
 - `Set Extraction Scala Package "com.foo.bar".` adds a `package` clause at
   the top of every extracted file. `Unset Extraction Scala Package.`
   removes it.
+- `Set Extraction Scala Pure Functions.` prints function types with Scala's
+  pure arrow, `A -> B` (and by-name parameters as `-> T`), instead of
+  `A => B`: extracted code is pure. It also adds
+  `import language.experimental.pureFunctions` at the top of every
+  extracted file, which Scala 3 (checked with 3.9) requires for this
+  syntax. Lambdas still use `=>`. `Unset Extraction Scala Pure Functions.`
+  (the default) goes back to `=>`.
 - `From ScalaExtraction Require Import ExtrScalaBasic.` extracts `bool`,
   `option`, `unit`, `list`, `prod` and `sum` to Scala's `Boolean`, `Option`,
   `Unit`, `List`, tuples and `Either` (and `sumbool`/`sumor` to `Boolean`/`Option`),
   like `ExtrOcamlBasic` does for OCaml.
   It also replaces their basic operations (`andb`, `orb`, `implb`, `xorb`,
   `negb`, `fst`, `snd`, `option_map`, `app`, `ListDef.map`) with Scala's own.
+- `From ScalaExtraction Require Import ExtrScalaNatBigInt.` extracts `nat` to
+  Scala's `BigInt`, and `ExtrScalaZBigInt` does the same for `positive`, `N`
+  and `Z`, like `ExtrOcamlNatBigInt` and `ExtrOCamlZBigInt` do for OCaml.
+  Their arithmetic and comparisons (`Nat.add`, `Nat.sub`, `Nat.div`, `Z.div`,
+  `Z.modulo`, `Pos.sub`, ...) are replaced by `BigInt` operations with the
+  same results as the Rocq functions: truncated subtraction, `Z.div` rounding
+  towards minus infinity, division by zero giving 0. Both include
+  `ExtrScalaBasic`.
+  Extraction still visits the Rocq bodies of the replaced operations, and
+  Rocq keeps whatever they refer to when it sits in a nested module, as
+  `Pos`, `N` and `Z` do: an extracted file using, say, `Z.div` also contains
+  the unused `Z.div_eucl` and its own dependencies (OCaml's
+  `ExtrOCamlZBigInt` behaves the same).
 - `Extract Inductive` and `Extract Constant` work as for the other
   languages. Literals are extracted natively when `ascii`/`string` are
   extracted to `Char`/`String`.
@@ -92,7 +111,8 @@ types erased, as for OCaml), which this plugin prints as Scala 3.
 | Record | One `final case class` with named fields, plus a `type` alias when the record and constructor names differ |
 | Single-constructor, single-field inductive | `type` alias of the field's type |
 | Coinductive type | Case classes under `__Name`, and `type Name = RocqLazy[__Name[...]]`; constructors are wrapped in `RocqLazy(...)` and matches use `.force` |
-| `Definition`, `Fixpoint` | `val` or `def` holding a curried function, with its full type: `def treeMap[t1, t2]: (t1 => t2) => Tree[t1] => Tree[t2]` |
+| `Definition`, `Fixpoint` | A method with one parameter list per argument, fully typed: `def treeMap[t1, t2](f: t1 => t2)(t: Tree[t1]): Tree[t2]`. Calls are plain method calls, and a self-recursive call in tail position compiles to a loop; a partial application `treeMap(f)` is eta-expanded by Scala into a function value. A definition without parameters is a `val` (`def` if polymorphic) |
+| `Extract Constant` | A `val` (`def` if polymorphic) holding the given expression, with its full type: `val andb: Boolean => Boolean => Boolean = a => b => a && b` |
 | Polymorphic definition | `def` with type parameters `[t1, t2, ...]`; every use passes them explicitly: `treeMap[t1, t2](f)(l)` |
 | Constructor of a polymorphic type | Explicit type arguments: `Node[t2](...)`, `MyNil[t1]()` |
 | Application | Curried calls: `f(a)(b)` |
@@ -143,7 +163,7 @@ this plugin. They come from:
    brings the value back to its precise type where it is used:
 
    ```scala
-   val dep: Bool => Any = ...
+   def dep(b: Bool): Any = ...
    val useDep: Nat = dep(True()).asInstanceOf[Nat]
    ```
 
@@ -151,7 +171,8 @@ this plugin. They come from:
    user's: each branch is passed as an `Any => Any` function, and the result
    is cast back to the type of the `match`.
 
-In the test suite, 3 of the 65 extracted definitions contain a cast. On the
+In the test suite, 7 of the 175 extracted definitions contain a cast: 2 for
+types extraction cannot express, 5 around `Extract Inductive` match functions. On the
 JVM, casts to generic types are not checked at runtime, and casts to class
 types are a single type check.
 

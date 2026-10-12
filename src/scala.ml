@@ -44,6 +44,30 @@ let { Goptions.get = scala_package } =
     ~value:""
     ()
 
+(* [Set Extraction Scala Pure Functions.]: extracted terms are pure, so
+   print function types with Scala 3's pure arrow [A -> B] (and by-name
+   parameters as [-> T]) instead of [A => B], and import
+   [language.experimental.pureFunctions] in every extracted file so
+   that syntax is accepted. Off by default, as it needs a Scala
+   compiler supporting it. *)
+let { Goptions.get = scala_pure_functions } =
+  Goptions.declare_bool_option_and_ref
+    ~key:["Extraction"; "Scala"; "Pure"; "Functions"]
+    ~value:false
+    ()
+
+(* The arrow of a function type: [->] (pure) or [=>] (impure). *)
+let pp_fun_arrow () = str (if scala_pure_functions () then "->" else "=>")
+
+(* [import language.experimental.pureFunctions], when pure arrows are
+   on. Right after the package clause, before the wrapping [object]
+   (see [preamble]): Scala only allows this language import at the top
+   level of a file. *)
+let pp_pure_functions_import () =
+  if scala_pure_functions () then
+    str "import language.experimental.pureFunctions" ++ fnl2 ()
+  else mt ()
+
 (*s Scala renaming issues. *)
 
 let keywords =
@@ -150,12 +174,13 @@ let register_structure (s : ml_structure) =
    it on first access. Not a one-liner [case class] because Scala
    forbids by-name parameters there. Covariant, so that a wrapped
    constructor [RocqLazy(Scons(...))] has the type of its coinductive. *)
-let pp_lazy_class =
-  str "final class RocqLazy[+T](thunk: => T) {" ++ fnl () ++
+let pp_lazy_class () =
+  str "final class RocqLazy[+T](thunk: " ++ pp_fun_arrow () ++ str " T) {" ++ fnl () ++
   str "  lazy val force: T = thunk" ++ fnl () ++
   str "}" ++ fnl () ++
   str "object RocqLazy {" ++ fnl () ++
-  str "  def apply[T](thunk: => T): RocqLazy[T] = new RocqLazy(thunk)" ++ fnl () ++
+  str "  def apply[T](thunk: " ++ pp_fun_arrow () ++
+  str " T): RocqLazy[T] = new RocqLazy(thunk)" ++ fnl () ++
   str "}"
 
 (* Every extracted file is a package declaration (optional, see
@@ -169,12 +194,13 @@ let pp_lazy_class =
 let preamble _table mod_name comment _used_modules usf =
   pp_header_comment comment ++
   pp_package_header () ++
+  pp_pure_functions_import () ++
   str "object " ++ pr_object_name mod_name ++ str " {" ++ fnl2 () ++
   (if not usf.mldummy then mt ()
    else str "val __ : Unit = ()" ++ fnl2 ())
   ++
   (if not (!struct_info).needs_lazy then mt ()
-   else pp_lazy_class ++ fnl2 ())
+   else pp_lazy_class () ++ fnl2 ())
 
 (*s The pretty-printer for Scala syntax *)
 
@@ -228,7 +254,7 @@ let rec pp_type_with table par var t =
         pp_global table Type r ++ str "[" ++
         prlist_with_sep (fun () -> str ", ") (pp_rec false) l ++ str "]"
     | Tarr (t1,t2) ->
-        pp_par par (pp_rec true t1 ++ str " => " ++ pp_rec false t2)
+        pp_par par (pp_rec true t1 ++ str " " ++ pp_fun_arrow () ++ str " " ++ pp_rec false t2)
     | Tdummy _ -> str "Unit"
     | Taxiom -> str "Any" ++ spc () ++ pp_bracket_comment (str "AXIOM TO BE REALIZED")
   in
@@ -438,12 +464,15 @@ and pp_custom_match ctx a br pv ty =
     let fn = match b.ids with
       | [] -> str "(_: Any) => " ++ pp_expr ctx false b.body
       | ids ->
+        (* An unused parameter can take anything. *)
+        let ids = List.map (fun (id, t) -> (id, if id == Dummy then Tunknown else t)) ids in
         let names, ctx' = push_params ctx ids in
         let fn = pp_params ctx' names ids ++ pp_expr ctx' false b.body in
         if List.for_all (fun (_, t) -> t == Tunknown) ids then fn
         else
-          let any = String.concat " => " (List.map (fun _ -> "Any") ids) in
-          str "(" ++ fn ++ str ").asInstanceOf[" ++ str any ++ str " => Any]"
+          let arrow = " " ^ Pp.string_of_ppcmds (pp_fun_arrow ()) ^ " " in
+          let any = String.concat arrow (List.map (fun _ -> "Any") ids @ ["Any"]) in
+          str "(" ++ fn ++ str ").asInstanceOf[" ++ str any ++ str "]"
     in
     str "(" ++ fn ++ str ")" ++ fnl ()
   in
@@ -536,8 +565,18 @@ and pp_def ctx head typ def =
 
 (*s Top-level definitions: [Dterm]s, and the members of a [Dfix]. *)
 
-(* [val] if [recursive] is false and the definition is not
-   polymorphic - [val] can't carry type parameters - [def] otherwise. *)
+(* A definition with parameters is a method with one parameter list per
+   parameter, [def name[vl](x: A)(y: B): rest =] then its body on its
+   own line: a full application [name(a)(b)] is then a plain method call
+   (no closure built per argument) and a self-recursive call in tail
+   position becomes a loop. Scala 3 eta-expands a partially applied or
+   bare reference [name(a)] into the function value every other position
+   expects. An anonymous parameter ([_]) gets a fresh name: unlike a
+   lambda's, a method's parameter cannot be [_], and nothing refers to
+   it (a dummy [MLrel] prints as [__], see [pp_expr]).
+
+   Without parameters: [val], or [def] when [recursive] or polymorphic -
+   [val] can't carry type parameters. *)
 let pp_definition table ~recursive name typ body =
   let vl = type_params (type_maxvar typ) in
   let ctx =
@@ -545,20 +584,22 @@ let pp_definition table ~recursive name typ body =
       { table; env = empty_env table (); tvars = Int.Map.empty }
   in
   let def = type_definition typ body in
-  let kw = if recursive || not (List.is_empty vl) then str "def " else str "val " in
-  let head = kw ++ name ++ pp_type_params vl in
-  let typ = pp_type table false vl typ in
-  if recursive then pp_def ctx head typ def
-  else
-    (* Same as [pp_def], with the parameters right after [=]. *)
-    let params, body = match def.node with
-      | TLam (params, body) -> params, body
-      | _ -> [], def
-    in
+  match def.node with
+  | TLam (params, body) ->
     let names, ctx' = push_params ctx params in
-    hov 2 (head ++ str ": " ++ typ ++ str " =" ++ spc () ++
-           pp_params ctx' names params ++
-           pp_body_after_params names (pp_expr ctx' false body))
+    let pp_param i id (_, t) =
+      let id = if Id.equal id dummy_name then Id.of_string ("__x" ^ string_of_int (i+1)) else id in
+      str "(" ++ pr_id_colon id ++ pp_ty ctx' false t ++ str ")"
+    in
+    v 0 (hov 2 (str "def " ++ name ++ pp_type_params vl ++
+                prlist identity (List.mapi (fun i (id, p) -> pp_param i id p) (List.combine names params)) ++ str ": " ++
+                pp_ty ctx' false body.ty ++ str " =") ++
+         fnl () ++ str "  " ++ pp_expr ctx' false body)
+  | _ ->
+    let kw = if recursive || not (List.is_empty vl) then str "def " else str "val " in
+    hov 2 (kw ++ name ++ pp_type_params vl ++ str ": " ++ pp_type table false vl typ ++
+           str " =" ++ (if recursive then fnl () ++ str "  " else spc ()) ++
+           pp_expr ctx false def)
 
 (*s Pretty-printing of inductive types declaration. *)
 
@@ -662,6 +703,9 @@ let pp_mind table i = match i.ind_kind with
    `scalac`: it silently drops them). Keeping it on one physical line,
    however long, avoids the ambiguity. *)
 let pp_custom_binding table name typ replacement =
+  match typ with
+  | Taxiom | Tunknown -> str "def " ++ name ++ str ": Any =" ++ str " " ++ str replacement
+  | _ ->
   let vl = type_params (type_maxvar typ) in
   let kw = if List.is_empty vl then str "val " else str "def " in
   kw ++ name ++ pp_type_params vl ++ str ": " ++ pp_type table false vl typ ++
