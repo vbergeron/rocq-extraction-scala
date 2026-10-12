@@ -33,7 +33,7 @@ Definition localFix (n_ : nat) : nat :=
   in go_ n_ 0.
 
 (* [x_] and [x'] in the same scope. *)
-Definition both (x_ x' : nat) : nat := x_ + x'.
+Definition both (x_ x' : nat) : nat := x' + x_ + x'.
 
 (* A global name. *)
 Definition plus' (n : nat) : nat := S n.

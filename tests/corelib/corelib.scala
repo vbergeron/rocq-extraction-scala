@@ -114,18 +114,18 @@ def eqb(n: Nat)(m: Nat): Bool =
               case O() => True()
               case S(_) => False()
               }
-  case S(n_) => m match {
+  case S(_n) => m match {
                 case O() => False()
-                case S(m_) => eqb(n_)(m_)
+                case S(_m) => eqb(_n)(_m)
                 }
   }
 
 def leb(n: Nat)(m: Nat): Bool =
   n match {
   case O() => True()
-  case S(n_) => m match {
+  case S(_n) => m match {
                 case O() => False()
-                case S(m_) => leb(n_)(m_)
+                case S(_m) => leb(_n)(_m)
                 }
   }
 
@@ -227,38 +227,38 @@ def of_num_uint(d: Uint1): Nat =
 def divmod(x: Nat)(y: Nat)(q: Nat)(u: Nat): Prod[Nat, Nat] =
   x match {
   case O() => Pair[Nat, Nat](q, u)
-  case S(x_) =>
+  case S(_x) =>
     u match {
-    case O() => divmod(x_)(y)(S(q))(y)
-    case S(u_) => divmod(x_)(y)(q)(u_)
+    case O() => divmod(_x)(y)(S(q))(y)
+    case S(_u) => divmod(_x)(y)(q)(_u)
     }
   }
 
 def div(x: Nat)(y: Nat): Nat =
   y match {
   case O() => y
-  case S(y_) => fst[Nat, Nat](divmod(x)(y_)(O())(y_))
+  case S(_y) => fst[Nat, Nat](divmod(x)(_y)(O())(_y))
   }
 
 def modulo(x: Nat)(y: Nat): Nat =
   y match {
   case O() => x
-  case S(y_) => sub(y_)(snd[Nat, Nat](divmod(x)(y_)(O())(y_)))
+  case S(_y) => sub(_y)(snd[Nat, Nat](divmod(x)(_y)(O())(_y)))
   }
 
 def gcd(a: Nat)(b: Nat): Nat =
   a match {
   case O() => b
-  case S(a_) => gcd(modulo(b)(S(a_)))(S(a_))
+  case S(_a) => gcd(modulo(b)(S(_a)))(S(_a))
   }
 
 def sqrt_iter(k: Nat)(p: Nat)(q: Nat)(r: Nat): Nat =
   k match {
   case O() => p
-  case S(k_) =>
+  case S(_k) =>
     r match {
-    case O() => sqrt_iter(k_)(S(p))(S(S(q)))(S(S(q)))
-    case S(r_) => sqrt_iter(k_)(p)(q)(r_)
+    case O() => sqrt_iter(_k)(S(p))(S(S(q)))(S(S(q)))
+    case S(_r) => sqrt_iter(_k)(p)(q)(_r)
     }
   }
 
@@ -268,10 +268,10 @@ def sqrt(n: Nat): Nat =
 def log2_iter(k: Nat)(p: Nat)(q: Nat)(r: Nat): Nat =
   k match {
   case O() => p
-  case S(k_) =>
+  case S(_k) =>
     r match {
-    case O() => log2_iter(k_)(S(p))(S(q))(q)
-    case S(r_) => log2_iter(k_)(p)(S(q))(r_)
+    case O() => log2_iter(_k)(S(p))(S(q))(q)
+    case S(_r) => log2_iter(_k)(p)(S(q))(_r)
     }
   }
 
@@ -437,8 +437,8 @@ def mul0(x: Positive)(y: Positive): Positive =
 
 def iter0[t1](f: t1 => t1)(x: t1)(n: Positive): t1 =
   n match {
-  case XI(n_) => f(iter0[t1](f)(iter0[t1](f)(x)(n_))(n_))
-  case XO(n_) => iter0[t1](f)(iter0[t1](f)(x)(n_))(n_)
+  case XI(_n) => f(iter0[t1](f)(iter0[t1](f)(x)(_n))(_n))
+  case XO(_n) => iter0[t1](f)(iter0[t1](f)(x)(_n))(_n)
   case XH() => f(x)
   }
 
@@ -483,11 +483,11 @@ def sqrtrem_step(f: Positive => Positive)(g: Positive => Positive)(p:
   case Pair(s, y) =>
     y match {
     case IsPos(r) =>
-      { val s_ : Positive = XI(XO(s));
-      { val r_ : Positive = g(f(r));
-      leb0(s_)(r_) match {
-      case True() => Pair[Positive, Mask](XI(s), sub_mask(r_)(s_))
-      case False() => Pair[Positive, Mask](XO(s), IsPos(r_))
+      { val _s: Positive = XI(XO(s));
+      { val _r: Positive = g(f(r));
+      leb0(_s)(_r) match {
+      case True() => Pair[Positive, Mask](XI(s), sub_mask(_r)(_s))
+      case False() => Pair[Positive, Mask](XO(s), IsPos(_r))
       } } }
     case _ => Pair[Positive, Mask](XO(s), sub_mask(g(f(XH())))(XO(XO(XH()))))
     }
@@ -545,11 +545,11 @@ def double(n: N): N =
 def sub1(n: N)(m: N): N =
   n match {
   case N0() => N0()
-  case Npos(n_) =>
+  case Npos(_n) =>
     m match {
     case N0() => n
-    case Npos(m_) =>
-      sub_mask(n_)(m_) match {
+    case Npos(_m) =>
+      sub_mask(_n)(_m) match {
       case IsPos(p) => Npos(p)
       case _ => N0()
       }
@@ -562,10 +562,10 @@ def compare0(n: N)(m: N): Comparison =
                case N0() => Eq()
                case Npos(_) => Lt()
                }
-  case Npos(n_) =>
+  case Npos(_n) =>
     m match {
     case N0() => Gt()
-    case Npos(m_) => compare(n_)(m_)
+    case Npos(_m) => compare(_n)(_m)
     }
   }
 
@@ -577,22 +577,22 @@ def leb1(x: N)(y: N): Bool =
 
 def pos_div_eucl(a: Positive)(b: N): Prod[N, N] =
   a match {
-  case XI(a_) =>
-    pos_div_eucl(a_)(b) match {
+  case XI(_a) =>
+    pos_div_eucl(_a)(b) match {
     case Pair(q, r) =>
-      { val r_ : N = succ_double(r);
-      leb1(b)(r_) match {
-      case True() => Pair[N, N](succ_double(q), sub1(r_)(b))
-      case False() => Pair[N, N](double(q), r_)
+      { val _r: N = succ_double(r);
+      leb1(b)(_r) match {
+      case True() => Pair[N, N](succ_double(q), sub1(_r)(b))
+      case False() => Pair[N, N](double(q), _r)
       } }
     }
-  case XO(a_) =>
-    pos_div_eucl(a_)(b) match {
+  case XO(_a) =>
+    pos_div_eucl(_a)(b) match {
     case Pair(q, r) =>
-      { val r_ : N = double(r);
-      leb1(b)(r_) match {
-      case True() => Pair[N, N](succ_double(q), sub1(r_)(b))
-      case False() => Pair[N, N](double(q), r_)
+      { val _r: N = double(r);
+      leb1(b)(_r) match {
+      case True() => Pair[N, N](succ_double(q), sub1(_r)(b))
+      case False() => Pair[N, N](double(q), _r)
       } }
     }
   case XH() =>
@@ -652,17 +652,17 @@ def pos_sub(x: Positive)(y: Positive): Z =
 def add1(x: Z)(y: Z): Z =
   x match {
   case Z0() => y
-  case Zpos(x_) =>
+  case Zpos(_x) =>
     y match {
     case Z0() => x
-    case Zpos(y_) => Zpos(add0(x_)(y_))
-    case Zneg(y_) => pos_sub(x_)(y_)
+    case Zpos(_y) => Zpos(add0(_x)(_y))
+    case Zneg(_y) => pos_sub(_x)(_y)
     }
-  case Zneg(x_) =>
+  case Zneg(_x) =>
     y match {
     case Z0() => x
-    case Zpos(y_) => pos_sub(y_)(x_)
-    case Zneg(y_) => Zneg(add0(x_)(y_))
+    case Zpos(_y) => pos_sub(_y)(_x)
+    case Zneg(_y) => Zneg(add0(_x)(_y))
     }
   }
 
@@ -679,17 +679,17 @@ def sub2(m: Z)(n: Z): Z =
 def mul1(x: Z)(y: Z): Z =
   x match {
   case Z0() => Z0()
-  case Zpos(x_) =>
+  case Zpos(_x) =>
     y match {
     case Z0() => Z0()
-    case Zpos(y_) => Zpos(mul0(x_)(y_))
-    case Zneg(y_) => Zneg(mul0(x_)(y_))
+    case Zpos(_y) => Zpos(mul0(_x)(_y))
+    case Zneg(_y) => Zneg(mul0(_x)(_y))
     }
-  case Zneg(x_) =>
+  case Zneg(_x) =>
     y match {
     case Z0() => Z0()
-    case Zpos(y_) => Zneg(mul0(x_)(y_))
-    case Zneg(y_) => Zpos(mul0(x_)(y_))
+    case Zpos(_y) => Zneg(mul0(_x)(_y))
+    case Zneg(_y) => Zpos(mul0(_x)(_y))
     }
   }
 
@@ -711,13 +711,13 @@ def compare1(x: Z)(y: Z): Comparison =
     case Zpos(_) => Lt()
     case Zneg(_) => Gt()
     }
-  case Zpos(x_) => y match {
-                   case Zpos(y_) => compare(x_)(y_)
+  case Zpos(_x) => y match {
+                   case Zpos(_y) => compare(_x)(_y)
                    case _ => Gt()
                    }
-  case Zneg(x_) =>
+  case Zneg(_x) =>
     y match {
-    case Zneg(y_) => compOpp(compare(x_)(y_))
+    case Zneg(_y) => compOpp(compare(_x)(_y))
     case _ => Lt()
     }
   }
@@ -754,24 +754,24 @@ def of_N(n: N): Z =
 
 def pos_div_eucl0(a: Positive)(b: Z): Prod[Z, Z] =
   a match {
-  case XI(a_) =>
-    pos_div_eucl0(a_)(b) match {
+  case XI(_a) =>
+    pos_div_eucl0(_a)(b) match {
     case Pair(q, r) =>
-      { val r_ : Z = add1(mul1(Zpos(XO(XH())))(r))(Zpos(XH()));
-      ltb(r_)(b) match {
-      case True() => Pair[Z, Z](mul1(Zpos(XO(XH())))(q), r_)
+      { val _r: Z = add1(mul1(Zpos(XO(XH())))(r))(Zpos(XH()));
+      ltb(_r)(b) match {
+      case True() => Pair[Z, Z](mul1(Zpos(XO(XH())))(q), _r)
       case False() =>
-        Pair[Z, Z](add1(mul1(Zpos(XO(XH())))(q))(Zpos(XH())), sub2(r_)(b))
+        Pair[Z, Z](add1(mul1(Zpos(XO(XH())))(q))(Zpos(XH())), sub2(_r)(b))
       } }
     }
-  case XO(a_) =>
-    pos_div_eucl0(a_)(b) match {
+  case XO(_a) =>
+    pos_div_eucl0(_a)(b) match {
     case Pair(q, r) =>
-      { val r_ : Z = mul1(Zpos(XO(XH())))(r);
-      ltb(r_)(b) match {
-      case True() => Pair[Z, Z](mul1(Zpos(XO(XH())))(q), r_)
+      { val _r: Z = mul1(Zpos(XO(XH())))(r);
+      ltb(_r)(b) match {
+      case True() => Pair[Z, Z](mul1(Zpos(XO(XH())))(q), _r)
       case False() =>
-        Pair[Z, Z](add1(mul1(Zpos(XO(XH())))(q))(Zpos(XH())), sub2(r_)(b))
+        Pair[Z, Z](add1(mul1(Zpos(XO(XH())))(q))(Zpos(XH())), sub2(_r)(b))
       } }
     }
   case XH() =>
@@ -784,12 +784,12 @@ def pos_div_eucl0(a: Positive)(b: Z): Prod[Z, Z] =
 def div_eucl(a: Z)(b: Z): Prod[Z, Z] =
   a match {
   case Z0() => Pair[Z, Z](Z0(), Z0())
-  case Zpos(a_) =>
+  case Zpos(_a) =>
     b match {
     case Z0() => Pair[Z, Z](Z0(), a)
-    case Zpos(_) => pos_div_eucl0(a_)(b)
-    case Zneg(b_) =>
-      pos_div_eucl0(a_)(Zpos(b_)) match {
+    case Zpos(_) => pos_div_eucl0(_a)(b)
+    case Zneg(_b) =>
+      pos_div_eucl0(_a)(Zpos(_b)) match {
       case Pair(q, r) =>
         r match {
         case Z0() => Pair[Z, Z](opp(q), Z0())
@@ -797,19 +797,19 @@ def div_eucl(a: Z)(b: Z): Prod[Z, Z] =
         }
       }
     }
-  case Zneg(a_) =>
+  case Zneg(_a) =>
     b match {
     case Z0() => Pair[Z, Z](Z0(), a)
     case Zpos(_) =>
-      pos_div_eucl0(a_)(b) match {
+      pos_div_eucl0(_a)(b) match {
       case Pair(q, r) =>
         r match {
         case Z0() => Pair[Z, Z](opp(q), Z0())
         case _ => Pair[Z, Z](opp(add1(q)(Zpos(XH()))), sub2(b)(r))
         }
       }
-    case Zneg(b_) =>
-      pos_div_eucl0(a_)(Zpos(b_)) match {
+    case Zneg(_b) =>
+      pos_div_eucl0(_a)(Zpos(_b)) match {
       case Pair(q, r) => Pair[Z, Z](q, opp(r))
       }
     }

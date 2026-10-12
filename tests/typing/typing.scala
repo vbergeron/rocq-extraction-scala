@@ -1,4 +1,4 @@
-File "./typing.v", line 90, characters 0-112:
+File "./typing.v", line 91, characters 0-112:
 Warning: The following axiom must be realized in the extracted code:
  ax.
  [extraction-axiom-to-realize,extraction,default]
@@ -105,8 +105,8 @@ type Pair0[a, b] = MkPair[a, b]
 def swapPair[t1, t2](p: Pair0[t1, t2]): Pair0[t2, t1] =
   MkPair[t2, t1](p.psnd, p.pfst)
 
-def primes(n_ : Nat): Nat =
-  { val m_ : Nat = S(n_); add(m_)(m_) }
+def primes(_n: Nat): Nat =
+  { val _m: Nat = S(_n); add(_m)(_m) }
 
 }
 

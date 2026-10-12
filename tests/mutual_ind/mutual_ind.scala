@@ -27,7 +27,7 @@ def tsize[t1](t: Tree[t1]): Nat =
 def fsize[t1](f: Forest[t1]): Nat =
   f match {
   case Empty() => O()
-  case Grove(t, f_) => add(tsize[t1](t))(fsize[t1](f_))
+  case Grove(t, _f) => add(tsize[t1](t))(fsize[t1](_f))
   }
 
 def tmap[t1, t2](g: t1 => t2)(t: Tree[t1]): Tree[t2] =
@@ -38,7 +38,7 @@ def tmap[t1, t2](g: t1 => t2)(t: Tree[t1]): Tree[t2] =
 def fmap[t1, t2](g: t1 => t2)(f: Forest[t1]): Forest[t2] =
   f match {
   case Empty() => Empty[t2]()
-  case Grove(t, f_) => Grove[t2](tmap[t1, t2](g)(t), fmap[t1, t2](g)(f_))
+  case Grove(t, _f) => Grove[t2](tmap[t1, t2](g)(t), fmap[t1, t2](g)(_f))
   }
 
 }
