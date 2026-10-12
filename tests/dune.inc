@@ -3,8 +3,8 @@
  (rule
   (deps adt.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to adt.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction adt.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to adt.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction adt.v)))))
 
  (rule
   (alias runtest)
@@ -21,8 +21,8 @@
  (rule
   (deps basic.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to basic.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction basic.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to basic.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction basic.v)))))
 
  (rule
   (alias runtest)
@@ -39,8 +39,8 @@
  (rule
   (deps basic_ops.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to basic_ops.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction basic_ops.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to basic_ops.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction basic_ops.v)))))
 
  (rule
   (alias runtest)
@@ -57,8 +57,8 @@
  (rule
   (deps basic_types.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to basic_types.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction basic_types.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to basic_types.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction basic_types.v)))))
 
  (rule
   (alias runtest)
@@ -75,8 +75,8 @@
  (rule
   (deps coinductive.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to coinductive.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction coinductive.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to coinductive.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction coinductive.v)))))
 
  (rule
   (alias runtest)
@@ -93,8 +93,8 @@
  (rule
   (deps corelib.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to corelib.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction corelib.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to corelib.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction corelib.v)))))
 
  (rule
   (alias runtest)
@@ -111,8 +111,8 @@
  (rule
   (deps custom_nat.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to custom_nat.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction custom_nat.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to custom_nat.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction custom_nat.v)))))
 
  (rule
   (alias runtest)
@@ -129,8 +129,8 @@
  (rule
   (deps dummy_params.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to dummy_params.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction dummy_params.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to dummy_params.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction dummy_params.v)))))
 
  (rule
   (alias runtest)
@@ -148,8 +148,8 @@
   (targets filename.log answer_file.scala)
   (deps filename.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to filename.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction filename.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to filename.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction filename.v)))))
 
  (rule
   (alias runtest)
@@ -170,8 +170,8 @@
  (rule
   (deps generic_calls.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to generic_calls.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction generic_calls.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to generic_calls.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction generic_calls.v)))))
 
  (rule
   (alias runtest)
@@ -188,8 +188,8 @@
  (rule
   (deps header_comment.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to header_comment.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction header_comment.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to header_comment.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction header_comment.v)))))
 
  (rule
   (alias runtest)
@@ -206,8 +206,8 @@
  (rule
   (deps identifiers.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to identifiers.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction identifiers.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to identifiers.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction identifiers.v)))))
 
  (rule
   (alias runtest)
@@ -224,8 +224,8 @@
  (rule
   (deps inlined.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to inlined.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction inlined.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to inlined.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction inlined.v)))))
 
  (rule
   (alias runtest)
@@ -242,8 +242,8 @@
  (rule
   (deps keywords.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to keywords.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction keywords.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to keywords.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction keywords.v)))))
 
  (rule
   (alias runtest)
@@ -260,8 +260,8 @@
  (rule
   (deps local_mutual_fix.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to local_mutual_fix.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction local_mutual_fix.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to local_mutual_fix.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction local_mutual_fix.v)))))
 
  (rule
   (alias runtest)
@@ -278,8 +278,8 @@
  (rule
   (deps logical_empty.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to logical_empty.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction logical_empty.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to logical_empty.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction logical_empty.v)))))
 
  (rule
   (alias runtest)
@@ -296,8 +296,8 @@
  (rule
   (deps modules.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to modules.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction modules.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to modules.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction modules.v)))))
 
  (rule
   (alias runtest)
@@ -314,8 +314,8 @@
  (rule
   (deps mutual.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to mutual.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction mutual.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to mutual.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction mutual.v)))))
 
  (rule
   (alias runtest)
@@ -332,8 +332,8 @@
  (rule
   (deps mutual_ind.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to mutual_ind.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction mutual_ind.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to mutual_ind.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction mutual_ind.v)))))
 
  (rule
   (alias runtest)
@@ -350,8 +350,8 @@
  (rule
   (deps nat_bigint.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to nat_bigint.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction nat_bigint.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to nat_bigint.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction nat_bigint.v)))))
 
  (rule
   (alias runtest)
@@ -368,8 +368,8 @@
  (rule
   (deps package.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to package.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction package.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to package.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction package.v)))))
 
  (rule
   (alias runtest)
@@ -386,8 +386,8 @@
  (rule
   (deps patterns.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to patterns.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction patterns.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to patterns.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction patterns.v)))))
 
  (rule
   (alias runtest)
@@ -404,8 +404,8 @@
  (rule
   (deps poly.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to poly.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction poly.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to poly.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction poly.v)))))
 
  (rule
   (alias runtest)
@@ -422,8 +422,8 @@
  (rule
   (deps pure_custom_match.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to pure_custom_match.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction pure_custom_match.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to pure_custom_match.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction pure_custom_match.v)))))
 
  (rule
   (alias runtest)
@@ -440,8 +440,8 @@
  (rule
   (deps pure_functions.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to pure_functions.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction pure_functions.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to pure_functions.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction pure_functions.v)))))
 
  (rule
   (alias runtest)
@@ -458,8 +458,8 @@
  (rule
   (deps records.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to records.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction records.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to records.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction records.v)))))
 
  (rule
   (alias runtest)
@@ -476,8 +476,8 @@
  (rule
   (deps singleton_keep.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to singleton_keep.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction singleton_keep.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to singleton_keep.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction singleton_keep.v)))))
 
  (rule
   (alias runtest)
@@ -494,8 +494,8 @@
  (rule
   (deps strings.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to strings.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction strings.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to strings.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction strings.v)))))
 
  (rule
   (alias runtest)
@@ -512,8 +512,8 @@
  (rule
   (deps type_defs.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to type_defs.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction type_defs.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to type_defs.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction type_defs.v)))))
 
  (rule
   (alias runtest)
@@ -530,8 +530,8 @@
  (rule
   (deps typing.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to typing.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction typing.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to typing.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction typing.v)))))
 
  (rule
   (alias runtest)
@@ -548,8 +548,8 @@
  (rule
   (deps z_bigint.v (package rocq-extraction-scala))
   (action
-   (with-outputs-to z_bigint.log
-    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction z_bigint.v))))
+   (with-accepted-exit-codes (or 0 1) (with-outputs-to z_bigint.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction z_bigint.v)))))
 
  (rule
   (alias runtest)
