@@ -48,6 +48,30 @@ let { Goptions.get = scala_package } =
     ~value:""
     ()
 
+(* [Set Extraction Scala Pure Functions.]: extracted terms are pure, so
+   print function types with Scala 3's pure arrow [A -> B] (and by-name
+   parameters as [-> T]) instead of [A => B], and import
+   [language.experimental.pureFunctions] in every extracted file so
+   that syntax is accepted. Off by default, as it needs a Scala
+   compiler supporting it. *)
+let { Goptions.get = scala_pure_functions } =
+  Goptions.declare_bool_option_and_ref
+    ~key:["Extraction"; "Scala"; "Pure"; "Functions"]
+    ~value:false
+    ()
+
+(* The arrow of a function type: [->] (pure) or [=>] (impure). *)
+let pp_fun_arrow () = str (if scala_pure_functions () then "->" else "=>")
+
+(* [import language.experimental.pureFunctions], when pure arrows are
+   on. Right after the package clause, before the wrapping [object]
+   (see [preamble]): Scala only allows this language import at the top
+   level of a file. *)
+let pp_pure_functions_import () =
+  if scala_pure_functions () then
+    str "import language.experimental.pureFunctions" ++ fnl2 ()
+  else mt ()
+
 (*s Scala renaming issues. *)
 
 let keywords =
@@ -183,12 +207,13 @@ let register_structure (s : ml_structure) =
    laziness: a by-name parameter [=> T] is a thunk, a [lazy val] caches
    it on first access. Not a one-liner [case class] because Scala
    forbids by-name parameters there. *)
-let pp_lazy_class =
-  str "final class RocqLazy[T](thunk: => T) {" ++ fnl () ++
+let pp_lazy_class () =
+  str "final class RocqLazy[T](thunk: " ++ pp_fun_arrow () ++ str " T) {" ++ fnl () ++
   str "  lazy val force: T = thunk" ++ fnl () ++
   str "}" ++ fnl () ++
   str "object RocqLazy {" ++ fnl () ++
-  str "  def apply[T](thunk: => T): RocqLazy[T] = new RocqLazy(thunk)" ++ fnl () ++
+  str "  def apply[T](thunk: " ++ pp_fun_arrow () ++
+  str " T): RocqLazy[T] = new RocqLazy(thunk)" ++ fnl () ++
   str "}"
 
 (* Every extracted file is a package declaration (optional, see
@@ -202,12 +227,13 @@ let pp_lazy_class =
 let preamble _table mod_name comment _used_modules usf =
   pp_header_comment comment ++
   pp_package_header () ++
+  pp_pure_functions_import () ++
   str "object " ++ pr_object_name mod_name ++ str " {" ++ fnl2 () ++
   (if not usf.mldummy then mt ()
    else str "val __ : Any = ()" ++ fnl2 ())
   ++
   (if not (!struct_info).needs_lazy then mt ()
-   else pp_lazy_class ++ fnl2 ())
+   else pp_lazy_class () ++ fnl2 ())
 
 (*s The pretty-printer for Scala syntax *)
 
@@ -262,7 +288,7 @@ let rec pp_type table par vl t =
         pp_global table Type r ++ str "[" ++
         prlist_with_sep (fun () -> str ", ") (pp_type table false vl) l ++ str "]"
     | Tarr (t1,t2) ->
-        pp_par par (pp_rec true t1 ++ str " => " ++ pp_rec false t2)
+        pp_par par (pp_rec true t1 ++ str " " ++ pp_fun_arrow () ++ str " " ++ pp_rec false t2)
     | Tdummy _ -> str "Unit"
     | Tunknown -> str "Any"
     | Taxiom -> str "Any" ++ spc () ++ pp_bracket_comment (str "AXIOM TO BE REALIZED")
@@ -732,7 +758,8 @@ let pp_apply_typed ctx hd ty self_relative par args = match args with
              in
              (acc ++ str "(" ++ pp_a ++ str ")"), st'
            | `Fallback, st' ->
-             (str "(" ++ acc ++ str ".asInstanceOf[Any => Any])(" ++ pp_a ++ str ")"), st')
+             (str "(" ++ acc ++ str ".asInstanceOf[Any " ++ pp_fun_arrow () ++
+              str " Any])(" ++ pp_a ++ str ")"), st')
         (hd, init_apply_state ty) args
     in
     pp_par par doc
@@ -786,7 +813,7 @@ let pp_body_after_params bl body =
    a recursive definition that has no better, real type available
    (Scala requires an explicit result type for recursive [def]s). *)
 let pp_any_chain n =
-  prlist_with_sep (fun () -> str " => ") (fun () -> str "Any") (List.init (n+1) (fun _ -> ()))
+  prlist_with_sep (fun () -> str " " ++ pp_fun_arrow () ++ str " ") (fun () -> str "Any") (List.init (n+1) (fun _ -> ()))
 
 (* Decomposes a [Dfix]/[Dterm]'s stored, fully-generalized type [typ]
    into fresh Scala type-parameter names [vl], the real domain type of
