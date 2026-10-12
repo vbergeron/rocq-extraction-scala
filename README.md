@@ -118,7 +118,7 @@ types erased, as for OCaml), which this plugin prints as Scala 3.
 | Application | Curried calls: `f(a)(b)` |
 | `match` | `match` with constructor patterns |
 | `let x := a in b` | `{ val x: T = a; b }`, or `{ def x[t3]: T = a; b }` when `a` is a function used at several types |
-| Local `fix` | Block with a local `def` and its type, then the call |
+| Local `fix`, `cofix` | Block with an inner `def` per function, with one parameter list per parameter and its result type, then the call: `{ def go(k: Nat)(acc: Nat): Nat = ...; go(n)(O()) }` |
 | Lambda | Parameters with their types: `(x: Nat) => ...` |
 | Proofs and type arguments | Erased; an erased value that is still needed is `__` (`val __ : Unit = ()`) |
 | Axiom | `throw new RuntimeException("AXIOM TO BE REALIZED (...)")`, to replace with `Extract Constant` |

@@ -256,6 +256,24 @@
   (action (run python3 ../check_scala.py keywords.log))))
 
 (subdir
+ local_fix
+ (rule
+  (deps local_fix.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to local_fix.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction local_fix.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff local_fix.scala local_fix.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py local_fix.log)
+  (action (run python3 ../check_scala.py local_fix.log))))
+
+(subdir
  local_mutual_fix
  (rule
   (deps local_mutual_fix.v (package rocq-extraction-scala))

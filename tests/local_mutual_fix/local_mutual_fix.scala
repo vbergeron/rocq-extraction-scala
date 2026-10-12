@@ -20,50 +20,44 @@ final case class Cons[a](_1: a, _2: List[a]) extends List[a]
 
 
 def parity(n: Nat): Prod[Bool, Bool] =
-  Pair[Bool, Bool](({
-                      def ev: Nat => Bool =
-                          (k: Nat) => 
+  Pair[Bool, Bool]({
+                     def ev(k: Nat): Bool =
+                       k match {
+                       case O() => True()
+                       case S(p) => od(p)
+                       }
+                     def od(k: Nat): Bool =
+                       k match {
+                       case O() => False()
+                       case S(p) => ev(p)
+                       }
+                     ev(n)
+                   }, {
+                        def ev(k: Nat): Bool =
                           k match {
                           case O() => True()
                           case S(p) => od(p)
                           }
-                     def od: Nat => Bool =
-                         (k: Nat) => 
-                         k match {
-                         case O() => False()
-                         case S(p) => ev(p)
-                         }
-                      ev
-                    })(n), ({
-                              def ev: Nat => Bool =
-                                  (k: Nat) => 
-                                  k match {
-                                  case O() => True()
-                                  case S(p) => od(p)
-                                  }
-                             def od: Nat => Bool =
-                                 (k: Nat) => 
-                                 k match {
-                                 case O() => False()
-                                 case S(p) => ev(p)
-                                 }
-                              od
-                            })(n))
+                        def od(k: Nat): Bool =
+                          k match {
+                          case O() => False()
+                          case S(p) => ev(p)
+                          }
+                        od(n)
+                      })
 
 def evenLength[t1]: List[t1] => Bool =
   {
-    def ev: List[t1] => Bool =
-        (l: List[t1]) => 
-        l match {
-        case Nil() => True()
-        case Cons(_, t) => od(t)
-        }
-   def od: List[t1] => Bool =
-       (l: List[t1]) => 
-       l match {
-       case Nil() => False()
-       case Cons(_, t) => ev(t)
-       }
+    def ev(l: List[t1]): Bool =
+      l match {
+      case Nil() => True()
+      case Cons(_, t) => od(t)
+      }
+    def od(l: List[t1]): Bool =
+      l match {
+      case Nil() => False()
+      case Cons(_, t) => ev(t)
+      }
     ev
   }
 
