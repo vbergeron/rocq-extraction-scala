@@ -305,8 +305,9 @@ let branch_tenv_ext typ p ids =
 
 (*s Pretty-printing of expressions. Function application is always
     printed as a chain of curried, parenthesised calls
-    [f(arg1)(arg2)...], matching the way every function value (whether
-    top-level or local) is compiled as a chain of one-argument Scala
+    [f(arg1)(arg2)...]: the call of a typed top-level definition, a
+    method with one parameter list per argument (see [pp_method]), as
+    well as of any other function value, a chain of one-argument Scala
     functions. *)
 
 (* The typing context, threaded as one value everywhere [table]/[env]/
@@ -748,14 +749,30 @@ let pp_abst = function
     prlist_with_sep (fun () -> mt ())
       (fun id -> str "(" ++ pr_id id ++ str ": Any) => ") l
 
-(* Same as [pp_abst], but with each parameter's real domain type (see
-   [typed_signature]) instead of [Any]. *)
-let pp_abst_typed ctx vl = function
-  | [] -> mt ()
-  | l ->
-    prlist_with_sep (fun () -> mt ())
-      (fun (id,t) -> str "(" ++ pr_id id ++ str ": " ++ pp_type ctx.table false vl t ++ str ") => ")
-      l
+(* A typed top-level definition's parameters, as Scala method parameter
+   lists [(x: A)(y: B)], one per curried argument - each with its real
+   domain type (see [typed_signature]). An anonymous binder ([_]) gets a
+   fresh name: unlike a lambda's, a method's parameter cannot be [_],
+   and nothing refers to it (a dummy [MLrel] prints as [__], see
+   [pp_expr_rel]). *)
+let pp_method_params ctx vl l =
+  prlist
+    (fun (i,(id,t)) ->
+       let pp_id = if Id.equal id dummy_name then str "__x" ++ int i else pr_id id in
+       str "(" ++ pp_id ++ str ": " ++ pp_type ctx.table false vl t ++ str ")")
+    (List.mapi (fun i p -> (i+1, p)) l)
+
+(* [def name[vl](x: A)(y: B): rest =] then [body], on its own line: a
+   method rather than a curried function value, so that a full
+   application [name(a)(b)] is a plain method call (no closure built per
+   argument) and a self-recursive call in tail position becomes a loop.
+   Scala 3 eta-expands a partially applied or bare reference [name(a)]
+   into the function value every other position expects. *)
+let pp_method ctx name vl params rest body =
+  v 0 (hov 2 (str "def " ++ name ++ pp_type_params vl ++
+              pp_method_params ctx vl params ++ str ": " ++
+              pp_type ctx.table false vl rest ++ str " =") ++
+       fnl () ++ str "  " ++ body)
 
 (* Forces a fresh line at a small, fixed indent right after a leading
    parameter chain, whenever there was at least one parameter - without
@@ -1064,9 +1081,10 @@ and pp_pat ctx typ pv =
     pv
 
 (* Non-recursive top-level value binding ([Dterm]). [typed_signature]
-   succeeding gives real parameter/return types and a [def] (if
-   genuinely polymorphic - [val] can't carry type parameters) or a
-   plain [val]; failing falls back to an unascribed [val]. Always sets
+   succeeding gives real parameter/return types and a method
+   ([pp_method]) when there are parameters, else a [def] (if genuinely
+   polymorphic - [val] can't carry type parameters) or a plain [val];
+   failing falls back to an unascribed [val]. Always sets
    [self] to [Some (None, vl)] once typed (never [Some r]: a [Dterm]
    never self-references), so its own type parameters remain
    available to [pp_cast_target]. *)
@@ -1083,20 +1101,23 @@ and pp_value_binding ctx name typ t =
   | Some (vl, doms, rest) ->
     let self = Some (None, vl) in
     let ctx' = ctx_ext_tenv (List.rev_map (fun t -> Some t) doms) { ctx0 with self } in
-    let kw = if List.is_empty vl then str "val " else str "def " in
     let pp_body = pp_expr ctx' false [] t' in
     let body =
       if already_satisfies ctx' t' rest then pp_body
       else str "(" ++ pp_body ++ str ").asInstanceOf[" ++ pp_type ctx.table false vl rest ++ str "]"
     in
-    hov 2 (kw ++ name ++ pp_type_params vl ++ str ": " ++
-           pp_type ctx.table false vl typ ++ str " =" ++ spc () ++
-           pp_abst_typed ctx' vl (List.combine (List.rev bl) doms) ++
-           pp_body_after_params bl body)
+    if not (List.is_empty bl) then
+      pp_method ctx' name vl (List.combine (List.rev bl) doms) rest body
+    else
+      let kw = if List.is_empty vl then str "val " else str "def " in
+      hov 2 (kw ++ name ++ pp_type_params vl ++ str ": " ++
+             pp_type ctx.table false vl typ ++ str " =" ++ spc () ++ body)
 
 (* Recursive definitions need an explicit ascribed type (Scala can't
    infer a recursive [def]'s return type). Top-level [Dfix] passes its
-   real stored type and gets the [pp_value_binding] treatment; a local
+   real stored type and gets the [pp_value_binding] treatment (a
+   method, whose self-recursive tail calls Scala turns into loops); a
+   local
    [MLfix] (from [pp_fix] below) passes [Tunknown], always failing over
    to the uniform arity-only chain. [r_opt] is [Some] only for a genuine
    top-level [Dfix]; once typed, [self] becomes [Some (r_opt, vl)],
@@ -1124,10 +1145,12 @@ and pp_fix_function ctx r_opt name typ t =
       if already_satisfies ctx' t' rest then pp_body
       else str "(" ++ pp_body ++ str ").asInstanceOf[" ++ pp_type ctx.table false vl rest ++ str "]"
     in
-    hov 2 (str "def " ++ name ++ pp_type_params vl ++ str ": " ++
-           pp_type ctx.table false vl typ ++ str " =" ++ fnl () ++
-           str "  " ++ pp_abst_typed ctx' vl (List.combine (List.rev bl) doms) ++
-           pp_body_after_params bl body)
+    if not (List.is_empty bl) then
+      pp_method ctx' name vl (List.combine (List.rev bl) doms) rest body
+    else
+      hov 2 (str "def " ++ name ++ pp_type_params vl ++ str ": " ++
+             pp_type ctx.table false vl typ ++ str " =" ++ fnl () ++
+             str "  " ++ body)
 
 (*s Names of the functions ([ids]) are already pushed in [ctx], passed
     here just for convenience. *)
@@ -1245,7 +1268,14 @@ let pp_mind table i = match i.ind_kind with
    [apply] method, so `mul(n)` fails to compile the moment anything
    calls a customized constant the ordinary way. Falls back to [Any]
    only when [typed_signature] can't decompose the type at all
-   ([Taxiom]/[Tunknown]). *)
+   ([Taxiom]/[Tunknown]).
+
+   Always a [def] holding a function value, never a method with
+   parameter lists ([pp_method]): the replacement is the user's own
+   expression - typically a lambda like ["a => b => a && b"] - which a
+   method body would have to apply to its parameters. A [def] rather
+   than a [val] so that no other declaration of the [object] can read
+   it before it is initialized, whatever their order. *)
 let pp_custom_binding table name typ replacement =
   (* [str " "], not the breakable [spc ()]: a replacement string is
      opaque user text that Format could wrap onto a deeper-indented
@@ -1257,8 +1287,7 @@ let pp_custom_binding table name typ replacement =
   match typed_signature typ 0 with
   | None -> str "def " ++ name ++ str ": Any =" ++ str " " ++ str replacement
   | Some (vl, _, rest) ->
-    let kw = if List.is_empty vl then str "val " else str "def " in
-    kw ++ name ++ pp_type_params vl ++ str ": " ++ pp_type table false vl rest ++
+    str "def " ++ name ++ pp_type_params vl ++ str ": " ++ pp_type table false vl rest ++
     str " =" ++ str " " ++ str replacement
 
 let pp_decl table = function

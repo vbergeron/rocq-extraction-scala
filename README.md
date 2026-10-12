@@ -25,12 +25,11 @@ final case class O() extends Nat
 final case class S(_1: Nat) extends Nat
 
 
-def addNat: Nat => Nat => Nat =
-    (n: Nat) => (m: Nat) => 
-    n match {
-    case O() => m
-    case S(p) => S(addNat(p)(m))
-    }
+def addNat(n: Nat)(m: Nat): Nat =
+  n match {
+  case O() => m
+  case S(p) => S(addNat(p)(m))
+  }
 
 }
 ```
@@ -92,7 +91,8 @@ types erased, as for OCaml), which this plugin prints as Scala 3.
 | Record | One `final case class` with named fields, plus a `type` alias when the record and constructor names differ |
 | Single-constructor, single-field inductive | `type` alias of the field's type |
 | Coinductive type | Case classes under `__Name`, and `type Name = RocqLazy[__Name[...]]`; constructors are wrapped in `RocqLazy(...)` and matches use `.force` |
-| `Definition`, `Fixpoint` | `val` or `def` holding a curried function, with its full type: `def treeMap[t1, t2]: (t1 => t2) => Tree[t1] => Tree[t2]` |
+| `Definition`, `Fixpoint` | A method with one parameter list per argument, fully typed: `def treeMap[t1, t2](f: t1 => t2)(t: Tree[t1]): Tree[t2]`. Calls are plain method calls, and a self-recursive call in tail position compiles to a loop; a partial application `treeMap(f)` is eta-expanded by Scala into a function value. A definition without parameters is a `val` (`def` if polymorphic) |
+| `Extract Constant` | A `def` holding the given expression as a function value, with its full type: `def andb: Boolean => Boolean => Boolean = a => b => a && b` |
 | Polymorphic definition | `def` with type parameters `[t1, t2, ...]`; recursive calls pass them explicitly |
 | Application | Curried calls: `f(a)(b)` |
 | `match` | `match` with constructor patterns |
@@ -118,7 +118,7 @@ plugin. They come from three sources:
    needs a cast back to the expected type:
 
    ```scala
-   val dep: Bool => Any = ...
+   def dep(b: Bool): Any = ...
    val use_dep: Nat = (dep(True())).asInstanceOf[Nat]
    ```
 
