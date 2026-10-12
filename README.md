@@ -80,6 +80,19 @@ The usual extraction commands then produce Scala 3 source.
   like `ExtrOcamlBasic` does for OCaml.
   It also replaces their basic operations (`andb`, `orb`, `implb`, `xorb`,
   `negb`, `fst`, `snd`, `option_map`, `app`, `ListDef.map`) with Scala's own.
+- `From ScalaExtraction Require Import ExtrScalaNatBigInt.` extracts `nat` to
+  Scala's `BigInt`, and `ExtrScalaZBigInt` does the same for `positive`, `N`
+  and `Z`, like `ExtrOcamlNatBigInt` and `ExtrOCamlZBigInt` do for OCaml.
+  Their arithmetic and comparisons (`Nat.add`, `Nat.sub`, `Nat.div`, `Z.div`,
+  `Z.modulo`, `Pos.sub`, ...) are replaced by `BigInt` operations with the
+  same results as the Rocq functions: truncated subtraction, `Z.div` rounding
+  towards minus infinity, division by zero giving 0. Both include
+  `ExtrScalaBasic`.
+  Extraction still visits the Rocq bodies of the replaced operations, and
+  Rocq keeps whatever they refer to when it sits in a nested module, as
+  `Pos`, `N` and `Z` do: an extracted file using, say, `Z.div` also contains
+  the unused `Z.div_eucl` and its own dependencies (OCaml's
+  `ExtrOCamlZBigInt` behaves the same).
 - `Extract Inductive` and `Extract Constant` work as for the other
   languages. Literals are extracted natively when `ascii`/`string` are
   extracted to `Char`/`String`.

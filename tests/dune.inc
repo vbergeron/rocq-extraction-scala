@@ -166,6 +166,24 @@
   (action (run python3 ../check_scala.py mutual.log))))
 
 (subdir
+ nat_bigint
+ (rule
+  (deps nat_bigint.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to nat_bigint.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction nat_bigint.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff nat_bigint.scala nat_bigint.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py nat_bigint.log)
+  (action (run python3 ../check_scala.py nat_bigint.log))))
+
+(subdir
  package
  (rule
   (deps package.v (package rocq-extraction-scala))
@@ -236,4 +254,22 @@
   (enabled_if %{bin-available:scalac})
   (deps ../check_scala.py records.log)
   (action (run python3 ../check_scala.py records.log))))
+
+(subdir
+ z_bigint
+ (rule
+  (deps z_bigint.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to z_bigint.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction z_bigint.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff z_bigint.scala z_bigint.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py z_bigint.log)
+  (action (run python3 ../check_scala.py z_bigint.log))))
 
