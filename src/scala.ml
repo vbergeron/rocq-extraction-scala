@@ -381,14 +381,6 @@ let pp_params ctx names params =
   prlist (fun (id, (_, t)) -> str "(" ++ pr_id id ++ str ": " ++ pp_ty ctx false t ++ str ") => ")
     (List.combine names params)
 
-(* Forces a fresh line at a small, fixed indent right after a leading
-   parameter chain, whenever there was at least one parameter - without
-   this, the body (typically a [match]) starts wherever the last
-   parameter happened to leave off, and every [case] aligns under that
-   arbitrarily deep column. *)
-let pp_body_after_params bl body =
-  if List.is_empty bl then body else fnl () ++ str "  " ++ body
-
 let push_params ctx params =
   let names, ctx = ctx_push_vars (List.rev_map (fun (id, _) -> id_of_mlid id) params) ctx in
   List.rev names, ctx
@@ -417,6 +409,7 @@ let rec pp_expr ctx par e =
   | TApp ({ node = TExn _ | TAxiom _ } as f, _) ->
     (* An exception may be applied, but I don't really care. *)
     pp_expr ctx par f
+  | TApp ({ node = TFix (i, fns, defs) }, args) -> pp_fix ctx i fns defs args
   | TApp (f, args) ->
     pp_expr ctx true f ++
     prlist (fun a -> str "(" ++ pp_expr ctx false a ++ str ")") args
@@ -438,7 +431,7 @@ let rec pp_expr ctx par e =
   | TTuple l ->
     str "(" ++ prlist_with_sep (fun () -> str ", ") (pp_expr ctx false) l ++ str ")"
   | TCase (ind, _, a, br) -> pp_case ctx ind a br e.ty
-  | TFix (i, fns, defs) -> pp_fix ctx i fns defs
+  | TFix (i, fns, defs) -> pp_fix ctx i fns defs []
   | TCoerce a ->
     if subtype a.ty e.ty then pp_expr ctx par a
     else pp_expr ctx true a ++ str ".asInstanceOf[" ++ pp_ty ctx false e.ty ++ str "]"
@@ -589,29 +582,45 @@ and pp_pat ctx ids = function
   | Pwild -> str "_"
   | Prel n -> pr_id (get_db_name n ctx.env)
 
-(* A local recursive definition: a block of mutually recursive [def]s,
+(* A local [fix]/[cofix]: a block of mutually recursive inner [def]s,
    each with its explicit type (Scala can't infer a recursive [def]'s
-   type). *)
-and pp_fix ctx i fns defs =
+   type), then the one the [fix] stands for, applied to [args]. As at
+   top level (see [pp_definition]), a [def] has one parameter list per
+   parameter, so that a full application is a plain method call and a
+   self-recursive call in tail position becomes a loop; with no [args],
+   Scala eta-expands the bare [def] into a function value. *)
+and pp_fix ctx i fns defs args =
   let ids, ctx' = ctx_push_vars (List.rev_map fst (Array.to_list fns)) ctx in
   let ids = Array.of_list (List.rev ids) in
   let pp_fn j def =
-    pp_def ctx' (str "def " ++ pr_id ids.(j)) (pp_ty ctx' false (snd fns.(j))) def
+    let head = str "def " ++ pr_id ids.(j) in
+    match def.node with
+    | TLam (params, body) -> pp_method ctx' head params body
+    | _ ->
+      v 0 (head ++ str ": " ++ pp_ty ctx' false (snd fns.(j)) ++ str " =" ++ fnl () ++
+           str "  " ++ pp_expr ctx' false def)
   in
-  v 0 (str "{" ++ fnl () ++
-       v 1 (str "  " ++ prvect_with_sep fnl identity (Array.mapi pp_fn defs)) ++ fnl () ++
-       str "  " ++ pr_id ids.(i) ++ fnl () ++ str "}")
+  v 0 (v 2 (str "{" ++ fnl () ++
+            prvect_with_sep fnl identity (Array.mapi pp_fn defs) ++ fnl () ++
+            pr_id ids.(i) ++
+            prlist (fun a -> str "(" ++ pp_expr ctx false a ++ str ")") args) ++
+       fnl () ++ str "}")
 
-(* [head: typ =] then [def], parameters on the first line. *)
-and pp_def ctx head typ def =
-  let params, body = match def.node with
-    | TLam (params, body) -> params, body
-    | _ -> [], def
-  in
+(* [head(x: A)(y: B): R =] then [body] on its own line: a method with
+   one parameter list per parameter. An anonymous parameter ([_]) gets
+   a fresh name: unlike a lambda's, a method's parameter cannot be [_],
+   and nothing refers to it (a dummy [MLrel] prints as [__], see
+   [pp_expr]). *)
+and pp_method ctx head params body =
   let names, ctx' = push_params ctx params in
-  hov 2 (head ++ str ": " ++ typ ++ str " =" ++ fnl () ++
-         str "  " ++ pp_params ctx' names params ++
-         pp_body_after_params names (pp_expr ctx' false body))
+  let pp_param i id (_, t) =
+    let id = if Id.equal id dummy_name then Id.of_string ("__x" ^ string_of_int (i+1)) else id in
+    str "(" ++ pr_id id ++ str ": " ++ pp_ty ctx' false t ++ str ")"
+  in
+  v 0 (hov 2 (head ++
+              prlist identity (List.mapi (fun i (id, p) -> pp_param i id p) (List.combine names params)) ++
+              str ": " ++ pp_ty ctx' false body.ty ++ str " =") ++
+       fnl () ++ str "  " ++ pp_expr ctx' false body)
 
 (*s Top-level definitions: [Dterm]s, and the members of a [Dfix]. *)
 
@@ -621,9 +630,7 @@ and pp_def ctx head typ def =
    (no closure built per argument) and a self-recursive call in tail
    position becomes a loop. Scala 3 eta-expands a partially applied or
    bare reference [name(a)] into the function value every other position
-   expects. An anonymous parameter ([_]) gets a fresh name: unlike a
-   lambda's, a method's parameter cannot be [_], and nothing refers to
-   it (a dummy [MLrel] prints as [__], see [pp_expr]).
+   expects (see [pp_method]).
 
    Without parameters: [val], or [def] when [recursive] or polymorphic -
    [val] can't carry type parameters. *)
@@ -638,15 +645,7 @@ let pp_definition table ~recursive name typ body =
   let def = type_definition typ body in
   match def.node with
   | TLam (params, body) ->
-    let names, ctx' = push_params ctx params in
-    let pp_param i id (_, t) =
-      let id = if Id.equal id dummy_name then Id.of_string ("__x" ^ string_of_int (i+1)) else id in
-      str "(" ++ pr_id id ++ str ": " ++ pp_ty ctx' false t ++ str ")"
-    in
-    v 0 (hov 2 (str "def " ++ name ++ pp_type_params vl ++
-                prlist identity (List.mapi (fun i (id, p) -> pp_param i id p) (List.combine names params)) ++ str ": " ++
-                pp_ty ctx' false body.ty ++ str " =") ++
-         fnl () ++ str "  " ++ pp_expr ctx' false body)
+    pp_method ctx (str "def " ++ name ++ pp_type_params vl) params body
   | _ ->
     let kw = if recursive || not (List.is_empty vl) then str "def " else str "val " in
     hov 2 (kw ++ name ++ pp_type_params vl ++ str ": " ++ pp_type table false vl typ ++

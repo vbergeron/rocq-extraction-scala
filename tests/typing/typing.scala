@@ -39,15 +39,14 @@ def letPoly(n: Nat): Prod[Nat, Bool] =
   Pair[Nat, Bool](id[Nat](n), id[Bool](True())) }
 
 def sumTo(n: Nat): Nat =
-  ({
-     def go: Nat => Nat => Nat =
-         (k: Nat) => (acc: Nat) => 
-         k match {
-         case O() => acc
-         case S(p) => go(p)(add(k)(acc))
-         }
-     go
-   })(n)(O())
+  {
+    def go(k: Nat)(acc: Nat): Nat =
+      k match {
+      case O() => acc
+      case S(p) => go(p)(add(k)(acc))
+      }
+    go(n)(O())
+  }
 
 def dep(b: Bool): Any =
   b match {

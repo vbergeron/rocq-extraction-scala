@@ -32,15 +32,14 @@ def under(x: Nat): Nat =
                        } }
 
 def localFix(n: Nat): Nat =
-  ({
-     def go: Nat => Nat => Nat =
-         (k: Nat) => (acc: Nat) => 
-         k match {
-         case O() => acc
-         case S(p) => go(p)(S(acc))
-         }
-     go
-   })(n)(O())
+  {
+    def go(k: Nat)(acc: Nat): Nat =
+      k match {
+      case O() => acc
+      case S(p) => go(p)(S(acc))
+      }
+    go(n)(O())
+  }
 
 def both(x: Nat)(x0: Nat): Nat =
   add(add(x0)(x))(x0)
