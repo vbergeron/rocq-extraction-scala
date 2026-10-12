@@ -1,10 +1,8 @@
 (* Scala 3 extraction backend: polymorphic, self-recursive functions
    whose curried parameters share an inductive type variable
    ([myMap]'s/[myFold]'s own [A]/[B] in both a higher-order parameter
-   and the list argument) - the [pinned_real]/[pinned_any] tracking and
-   the explicit-type-argument treatment of self-relative calls.
-   [emptyList] is a
-   zero-argument polymorphic [Dterm], printed as a parameterized [def]
+   and the list argument), every call passing its type arguments
+   explicitly. [emptyList] is a zero-argument polymorphic [Dterm], printed as a parameterized [def]
    since Scala's [val] cannot itself carry a type parameter. *)
 
 From ScalaExtraction Require Import ScalaExtraction.

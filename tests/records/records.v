@@ -1,6 +1,6 @@
 (* Scala 3 extraction backend: records - a monomorphic record printed
    as a single named-field case class ([point]), read back via the
-   record-field-projection printing ([pp_record_proj]/[record_proj_shape]); and a
+   record-field-projection printing ([pp_record_proj]); and a
    polymorphic record with a single field, which extraction erases to a
    bare type alias ([Singleton] inductive, [box]/[mapBox]). *)
 

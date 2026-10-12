@@ -10,14 +10,9 @@
 
 (*s Production of Scala (Scala 3) syntax. *)
 
-(* Local (non-top-level) positions are printed with static type [Any],
-   so every application through them goes through a cast-then-call
-   [(f.asInstanceOf[Any => Any])(arg)]. Top-level [Dfix]/[Dterm]
-   declarations get a real, precise Scala signature instead (see
-   [typed_signature]), and the rest of this file removes as many of the
-   casts above as remain provably safe once a real type is available
-   ([known_type], [already_satisfies], [apply_one_step],
-   [pp_apply_typed]). *)
+(* Each definition is first typed by [Mltyping], then printed from its
+   typed form with every type Scala needs written out: see
+   [pp_expr]. *)
 
 open Pp
 open CErrors
