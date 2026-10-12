@@ -1,9 +1,7 @@
 (* Scala 3 extraction backend: coinductive types, monomorphic and
-   polymorphic - the [RocqLazy] wrapper and forcing/cast machinery.
-   [takeList] additionally
-   exercises the coinductive "unsafe skolem" cast-fallback alongside a
-   self-recursive call that also shares a type variable with the
-   coinductive scrutinee. *)
+   polymorphic - the [RocqLazy] wrapper and its forcing. [takeList]
+   additionally has a self-recursive call that shares a type variable
+   with the coinductive scrutinee. *)
 
 From ScalaExtraction Require Import ScalaExtraction.
 

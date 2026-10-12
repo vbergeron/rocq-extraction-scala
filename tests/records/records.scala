@@ -14,7 +14,7 @@ def swap(p: Point): Point =
 type Box[a] = a
 // singleton inductive, whose constructor was MkBox
 
-def mapBox[t1, t2](f: t1 => t2): Box[t1] => Box[t2] =
+def mapBox[t1, t2](f: t1 => t2): t1 => t2 =
   f
 
 }

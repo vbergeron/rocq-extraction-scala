@@ -113,61 +113,68 @@ types erased, as for OCaml), which this plugin prints as Scala 3.
 | Coinductive type | Case classes under `__Name`, and `type Name = RocqLazy[__Name[...]]`; constructors are wrapped in `RocqLazy(...)` and matches use `.force` |
 | `Definition`, `Fixpoint` | A method with one parameter list per argument, fully typed: `def treeMap[t1, t2](f: t1 => t2)(t: Tree[t1]): Tree[t2]`. Calls are plain method calls, and a self-recursive call in tail position compiles to a loop; a partial application `treeMap(f)` is eta-expanded by Scala into a function value. A definition without parameters is a `val` (`def` if polymorphic) |
 | `Extract Constant` | A `val` (`def` if polymorphic) holding the given expression, with its full type: `val andb: Boolean => Boolean => Boolean = a => b => a && b` |
-| Polymorphic definition | `def` with type parameters `[t1, t2, ...]`; recursive calls pass them explicitly |
+| Polymorphic definition | `def` with type parameters `[t1, t2, ...]`; every use passes them explicitly: `treeMap[t1, t2](f)(l)` |
+| Constructor of a polymorphic type | Explicit type arguments: `Node[t2](...)`, `MyNil[t1]()` |
 | Application | Curried calls: `f(a)(b)` |
 | `match` | `match` with constructor patterns |
-| `let x := a in b` | `{ val x = a; b }` |
-| Local `fix` | Block with a local `def`, then the call |
-| Proofs and type arguments | Erased; an erased value that is still needed is `__` (`val __ : Any = ()`) |
+| `let x := a in b` | `{ val x: T = a; b }`, or `{ def x[t3]: T = a; b }` when `a` is a function used at several types |
+| Local `fix` | Block with a local `def` and its type, then the call |
+| Lambda | Parameters with their types: `(x: Nat) => ...` |
+| Proofs and type arguments | Erased; an erased value that is still needed is `__` (`val __ : Unit = ()`) |
 | Axiom | `throw new RuntimeException("AXIOM TO BE REALIZED (...)")`, to replace with `Extract Constant` |
 | Identifiers | `'` becomes `_`; type names are capitalized; Scala keywords are renamed |
 
 Everything is printed inside one `object`, so two extracted files can be
 compiled together without name clashes.
 
-### Why casts remain
+### Types
 
-The output contains `.asInstanceOf[...]` casts. They state types the Rocq
-program already guarantees; a cast failing at runtime would be a bug in this
-plugin. They come from three sources:
+Extraction keeps the types of top-level definitions and constructor fields
+only. Scala needs more: a type for every lambda parameter and local
+definition, and type arguments wherever it cannot infer them. Before
+printing, a type reconstruction pass (`src/typing/mltyping.ml`) therefore
+computes the type of every node of each definition, in terms of the
+intermediate language's own types: it is independent of Scala, and usable
+by other extraction backends. It is Hindley-Milner type inference with
+polymorphic `let`, extended in two ways:
+
+- types flow from the context into lambdas and `match` branches, so that
+  the parameters of a lambda passed to a function get the function's
+  parameter types;
+- it never fails: where the term has no ML type, it records a coercion
+  between the type the term has and the type it is used at.
+
+The printer then writes every binder with its type and every polymorphic
+use with its type arguments, so that the Scala type of each expression is
+exactly the one computed by the pass.
+
+### Casts
+
+A cast `.asInstanceOf[...]` is printed at a coercion only, when Scala does
+not already accept the value at its use (Scala's functions are
+contravariant, and every value is an `Any`). Casts state types the Rocq
+program already guarantees; a cast failing at runtime would be a bug in
+this plugin. They come from:
 
 1. **Types extraction cannot express.** Rocq accepts programs that ML type
    systems reject, such as a result type computed from a value
-   (`if b then nat else bool`). Extraction types these parts as unknown,
-   printed `Any`, and marks the places where ML typing fails. Each such place
-   needs a cast back to the expected type:
+   (`if b then nat else bool`), or an argument used at several types.
+   Extraction types these parts as unknown, printed `Any`, and a cast
+   brings the value back to its precise type where it is used:
 
    ```scala
    def dep(b: Bool): Any = ...
-   val use_dep: Nat = (dep(True())).asInstanceOf[Nat]
+   val useDep: Nat = dep(True()).asInstanceOf[Nat]
    ```
 
-2. **Local values have no recorded type.** The intermediate language keeps the
-   types of top-level definitions and constructor fields only. Scala needs a
-   type for every lambda parameter and every recursive function, and cannot
-   infer them from later uses. Local lambdas and local `fix` are therefore
-   typed `Any`, and the plugin does not track the types of `let`-bound
-   variables. These values are cast where a precise type is required:
+2. **Match functions given by `Extract Inductive`.** Their Scala type is the
+   user's: each branch is passed as an `Any => Any` function, and the result
+   is cast back to the type of the `match`.
 
-   ```scala
-   def go: Any => Any => Any = (k: Any) => (acc: Any) => ...
-   ((go.asInstanceOf[Any => Any])(n).asInstanceOf[Any => Any])(O())
-   ```
-
-3. **Conservative checks.** At each function argument, constructor field and
-   function result, the plugin checks whether the value is known to have the
-   required type, and inserts a cast when it cannot show it. The check is deliberately
-   simple, so some casts are redundant, for instance on a `match` whose
-   branches mix a variable and a constructor:
-
-   ```scala
-   (l1 match { ... }).asInstanceOf[MyList[t1]]
-   ```
-
-Calls between top-level definitions, constructor applications and pattern
-matches on typed values need no cast: in the test suite, 24 of the 29 extracted
-definitions contain none. On the JVM, casts to generic types are not checked
-at runtime, and casts to class types are a single type check.
+In the test suite, 7 of the 175 extracted definitions contain a cast: 2 for
+types extraction cannot express, 5 around `Extract Inductive` match functions. On the
+JVM, casts to generic types are not checked at runtime, and casts to class
+types are a single type check.
 
 ## Tests
 

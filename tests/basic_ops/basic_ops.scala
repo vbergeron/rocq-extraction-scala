@@ -21,19 +21,19 @@ def app[t1]: List[t1] => List[t1] => List[t1] = l => m => l ++ m
 def map[t1, t2]: (t1 => t2) => List[t1] => List[t2] = f => l => l.map(f)
 
 def boolOps(a: Boolean)(b: Boolean): Boolean =
-  xorb((implb((negb(a)))((orb(a)(b)))))((andb(a)(b)))
+  xorb(implb(negb(a))(orb(a)(b)))(andb(a)(b))
 
 def pairList[t1](p: Tuple2[t1, t1]): List[t1] =
-  ::(fst(p), ::(snd(p), Nil))
+  ::(fst[t1, t1](p), ::(snd[t1, t1](p), Nil))
 
 def appOne(l: List[Boolean]): List[Boolean] =
-  app(l)(::(true, Nil))
+  app[Boolean](l)(::(true, Nil))
 
 def negAll(l: List[Boolean]): List[Boolean] =
-  map(negb)(::(true, l))
+  map[Boolean, Boolean](negb)(::(true, l))
 
 def negOpt(b: Boolean): Option[Boolean] =
-  option_map(negb)(Some(b))
+  option_map[Boolean, Boolean](negb)(Some(b))
 
 }
 

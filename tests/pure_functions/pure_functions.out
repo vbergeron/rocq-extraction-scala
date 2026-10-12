@@ -2,7 +2,7 @@ import language.experimental.pureFunctions
 
 object Main {
 
-final class RocqLazy[T](thunk: -> T) {
+final class RocqLazy[+T](thunk: -> T) {
   lazy val force: T = thunk
 }
 object RocqLazy {
@@ -15,10 +15,10 @@ final case class S(_1: Nat) extends Nat
 
 
 def compose[t1, t2, t3](g: t2 -> t3)(f: t1 -> t2)(x: t1): t3 =
-  g((f(x)))
+  g(f(x))
 
 def twice[t1](f: t1 -> t1)(x: t1): t1 =
-  f((f(x)))
+  f(f(x))
 
 sealed trait __Stream[a]
 final case class Scons[a](_1: a, _2: Stream[a]) extends __Stream[a]
@@ -26,7 +26,7 @@ final case class Scons[a](_1: a, _2: Stream[a]) extends __Stream[a]
 type Stream[a] = RocqLazy[__Stream[a]]
 
 def const_stream(n: Nat): Stream[Nat] =
-  RocqLazy(Scons(n, const_stream(n)))
+  RocqLazy(Scons[Nat](n, const_stream(n)))
 
 }
 
@@ -37,14 +37,14 @@ import language.experimental.pureFunctions
 object Main {
 
 def twice[t1](f: t1 -> t1)(x: t1): t1 =
-  f((f(x)))
+  f(f(x))
 
 }
 
 object Main {
 
 def twice[t1](f: t1 => t1)(x: t1): t1 =
-  f((f(x)))
+  f(f(x))
 
 }
 

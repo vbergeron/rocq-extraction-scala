@@ -13,13 +13,13 @@ val div: BigInt => BigInt => BigInt = a => b => if (b == 0) BigInt(0) else a / b
 val modulo: BigInt => BigInt => BigInt = a => b => if (b == 0) a else a % b
 
 def fact(n: BigInt): BigInt =
-  ((((fO: Any => Any) => (fS: Any => Any) => (n: BigInt) => if (n == 0) fO(()) else fS(n - 1))
-      (((_: Any) => ((n: BigInt) => n + 1)(BigInt(0))))
-      (((p: Any) => mul(n)((fact((p).asInstanceOf[BigInt])))))
-      (n))).asInstanceOf[BigInt]
+  (((fO: Any => Any) => (fS: Any => Any) => (n: BigInt) => if (n == 0) fO(()) else fS(n - 1))
+     ((_: Any) => ((n: BigInt) => n + 1)(BigInt(0)))
+     (((p: BigInt) => mul(n)(fact(p))).asInstanceOf[Any => Any])
+     (n)).asInstanceOf[BigInt]
 
 def ops(a: BigInt)(b: BigInt): Boolean =
-  leb((sub(a)(b)))((add((div(a)(b)))((modulo(a)(b)))))
+  leb(sub(a)(b))(add(div(a)(b))(modulo(a)(b)))
 
 }
 

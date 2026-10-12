@@ -14,7 +14,7 @@ def addNat(n: Nat)(m: Nat): Nat =
 def mulNat(n: Nat)(m: Nat): Nat =
   n match {
   case O() => O()
-  case S(p) => addNat(m)((mulNat(p)(m)))
+  case S(p) => addNat(m)(mulNat(p)(m))
   }
 
 }

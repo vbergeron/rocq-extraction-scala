@@ -89,6 +89,24 @@
   (action (run python3 ../check_scala.py coinductive.log))))
 
 (subdir
+ corelib
+ (rule
+  (deps corelib.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to corelib.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction corelib.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff corelib.scala corelib.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py corelib.log)
+  (action (run python3 ../check_scala.py corelib.log))))
+
+(subdir
  custom_nat
  (rule
   (deps custom_nat.v (package rocq-extraction-scala))
@@ -254,6 +272,24 @@
   (enabled_if %{bin-available:scalac})
   (deps ../check_scala.py records.log)
   (action (run python3 ../check_scala.py records.log))))
+
+(subdir
+ typing
+ (rule
+  (deps typing.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to typing.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction typing.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff typing.scala typing.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py typing.log)
+  (action (run python3 ../check_scala.py typing.log))))
 
 (subdir
  z_bigint
