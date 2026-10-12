@@ -100,28 +100,32 @@ let keywords =
 let pp_comment s = str "// " ++ hov 0 s ++ fnl ()
 let pp_bracket_comment s = str "/* " ++ hov 0 s ++ str " */"
 
-(* Unlike OCaml, Scala identifiers cannot contain an apostrophe, which is
-   nonetheless a very common character in Rocq-chosen names (e.g. [n'],
-   [IHn']). We turn it into an underscore whenever we print an actual
-   local identifier (as opposed to a global reference, which already goes
-   through [Common.unquote], or a name only used inside a comment). *)
-let pr_id id = str (String.map (fun c -> if c == '\'' then '_' else c) (Id.to_string id))
-
-(* [id: ...]: when [id] ends with an underscore, Scala would read the
-   colon as part of the identifier ([x_:] is a valid name). *)
-let pr_id_colon id =
-  let s = Id.to_string id in
+(* A Rocq identifier as a Scala one. Scala identifiers cannot contain
+   an apostrophe, which is nonetheless very common in Rocq-chosen names
+   ([n'], [IHn']), and must not end with an underscore, since [x_: T]
+   reads as the identifier [x_:]. Trailing apostrophes and underscores
+   are dropped ([n'] and [n_] become [n]), other apostrophes become
+   underscores. Two names becoming the same are then told apart by a
+   number, as any other clash: see [ctx_push_vars] for local names,
+   [register_global_names] for global ones. An identifier made of
+   underscores only ([_], [__]) is left as it is. *)
+let scala_ident s =
+  let s = String.map (fun c -> if c == '\'' then '_' else c) s in
   let n = String.length s in
-  pr_id id ++ str (if n > 1 && (s.[n-1] == '\'' || s.[n-1] == '_') then " : " else ": ")
+  let rec trailing k = if k < n && s.[n-1-k] == '_' then trailing (k+1) else k in
+  let k = trailing 0 in
+  if Int.equal k 0 || Int.equal k n then s else String.sub s 0 (n-k)
+
+let scala_id id = Id.of_string (scala_ident (Id.to_string id))
+
+let pr_id id = str (scala_ident (Id.to_string id))
 
 (* Every extracted file's contents are wrapped in a single [object]
    named after the module (see [preamble]): [mod_name] cleaned up the
    same way [pr_id] does, capitalized to follow Scala's own naming
-   convention for an [object] - purely cosmetic, unlike the apostrophe
-   cleanup, since Scala does not actually require it. *)
-let pr_object_name mod_name =
-  str (String.capitalize_ascii
-         (String.map (fun c -> if c == '\'' then '_' else c) (Id.to_string mod_name)))
+   convention for an [object] - purely cosmetic, since Scala does not
+   actually require it. *)
+let pr_object_name mod_name = str (String.capitalize_ascii (scala_ident (Id.to_string mod_name)))
 
 let pp_header_comment = function
   | None -> mt ()
@@ -204,6 +208,44 @@ let preamble _table mod_name comment _used_modules usf =
 
 (*s The pretty-printer for Scala syntax *)
 
+(* Global names as Scala identifiers. Common makes the names of globals
+   unique among themselves, before [unquote] turns them into Scala
+   identifiers ([scala_ident]): two of them may then become the same
+   ([plus] and [plus']). Once the names of a whole structure are known
+   (by its printing phase, see [pp_struct]), [register_global_names]
+   gives each name that [scala_ident] changes a Scala name clashing with
+   no other: [plus'] becomes [plus0] when there is a [plus].
+   [global_scala_ids] holds all the Scala names of globals, which local
+   names must not shadow. *)
+let global_names = ref String.Map.empty
+let global_scala_ids = ref Id.Set.empty
+
+let register_global_names table =
+  let plain s = String.map (fun c -> if c == '\'' then '_' else c) s in
+  let changed id = let s = Id.to_string id in not (String.equal (scala_ident s) (plain s)) in
+  let all = Id.Set.elements (snd (empty_env table ())) in
+  (* Names [scala_ident] keeps, apostrophes aside. *)
+  let taken =
+    List.fold_left (fun taken id ->
+        if changed id then taken
+        else if String.contains (Id.to_string id) '\'' then Id.Set.add (scala_id id) taken
+        else Id.Set.add id taken)
+      Id.Set.empty all in
+  let names, taken =
+    List.fold_left (fun (names, taken) id ->
+        if not (changed id) then names, taken
+        else
+          let id' = rename_id (scala_id id) taken in
+          String.Map.add (Id.to_string id) (Id.to_string id') names, Id.Set.add id' taken)
+      (String.Map.empty, taken) all in
+  global_names := names;
+  global_scala_ids := taken
+
+let unquote_global s =
+  match String.Map.find_opt s !global_names with
+  | Some s' -> s'
+  | None -> scala_ident s
+
 let pp_global table k r =
   if is_inline_custom r then str (find_custom r) else str (Common.pp_global table k r)
 
@@ -232,6 +274,9 @@ let pp_one_field table r i = function
 let pp_fields table r fields = List.mapi (pp_one_field table r) fields
 
 let pp_field table r fields i = pp_one_field table r i (List.nth fields i)
+
+(* The type parameters of an inductive or a type definition. *)
+let scala_tvars l = rename_tvars keywords (List.map scala_id l)
 
 (*s Pretty-printing of types. [par] is a boolean indicating whether
     parentheses are needed or not. [var i] prints [Tvar i] and
@@ -289,8 +334,14 @@ type ctx = {
   tvars : Id.t Int.Map.t;
 }
 
+(* Local names are turned into Scala identifiers ([scala_ident]) before
+   being made unique, so that a name becoming the same as another in
+   scope ([n'] next to [n]) gets a number instead ([n0]). *)
 let ctx_push_vars ids ctx =
-  let ids', env = push_vars ids ctx.env in
+  let scala id =
+    if id == dummy_name then id
+    else Id.of_string (scala_ident (String.uncapitalize_ascii (Id.to_string id))) in
+  let ids', env = push_vars (List.map scala ids) ctx.env in
   ids', { ctx with env }
 
 let ctx_add_tvars l ctx =
@@ -327,7 +378,7 @@ let tparam_names = List.map (fun k -> (k, Id.of_string ("t" ^ string_of_int k)))
 
 (* Parameters [(x: T) => ...], with their names already pushed. *)
 let pp_params ctx names params =
-  prlist (fun (id, (_, t)) -> str "(" ++ pr_id_colon id ++ pp_ty ctx false t ++ str ") => ")
+  prlist (fun (id, (_, t)) -> str "(" ++ pr_id id ++ str ": " ++ pp_ty ctx false t ++ str ") => ")
     (List.combine names params)
 
 (* Forces a fresh line at a small, fixed indent right after a leading
@@ -380,8 +431,7 @@ let rec pp_expr ctx par e =
       else str "def " in
     let ctx_a = ctx_add_tvars gens ctx in
     hv 0 (str "{ " ++ kw ++
-          hov 2 ((if List.is_empty gens then pr_id_colon (List.hd i)
-                 else pr_id (List.hd i) ++ pp_type_params (List.map snd gens) ++ str ": ") ++
+          hov 2 (pr_id (List.hd i) ++ pp_type_params (List.map snd gens) ++ str ": " ++
                  pp_ty ctx_a false a.ty ++ str " =" ++ spc () ++ pp_expr ctx_a false a) ++
           str ";" ++ spc () ++ pp_expr ctx' false b ++ str " }")
   | TCons (r, targs, args) -> pp_cons ctx e r targs args
@@ -581,7 +631,9 @@ let pp_definition table ~recursive name typ body =
   let vl = type_params (type_maxvar typ) in
   let ctx =
     ctx_add_tvars (List.mapi (fun i id -> (i+1, id)) vl)
-      { table; env = empty_env table (); tvars = Int.Map.empty }
+      { table; env = (let db, ids = empty_env table () in
+                      db, Id.Set.union ids !global_scala_ids);
+        tvars = Int.Map.empty }
   in
   let def = type_definition typ body in
   match def.node with
@@ -589,7 +641,7 @@ let pp_definition table ~recursive name typ body =
     let names, ctx' = push_params ctx params in
     let pp_param i id (_, t) =
       let id = if Id.equal id dummy_name then Id.of_string ("__x" ^ string_of_int (i+1)) else id in
-      str "(" ++ pr_id_colon id ++ pp_ty ctx' false t ++ str ")"
+      str "(" ++ pr_id id ++ str ": " ++ pp_ty ctx' false t ++ str ")"
     in
     v 0 (hov 2 (str "def " ++ name ++ pp_type_params vl ++
                 prlist identity (List.mapi (fun i (id, p) -> pp_param i id p) (List.combine names params)) ++ str ": " ++
@@ -611,7 +663,7 @@ let pp_logical_ind packet =
 
 let pp_singleton table packet =
   let name = pp_global table Type packet.ip_typename_ref in
-  let l = rename_tvars keywords packet.ip_vars in
+  let l = scala_tvars packet.ip_vars in
   hov 2 (str "type " ++ name ++ pp_type_params l ++ str " =" ++ spc () ++
          pp_type table false l (List.hd packet.ip_types.(0))) ++ fnl () ++
   pp_comment (str "singleton inductive, whose constructor was " ++
@@ -623,7 +675,7 @@ let pp_singleton table packet =
    wrapped, never a bare case class (see [pp_expr_cons]'s [RocqLazy]
    wrap and [pp_expr_case]'s [.force]). *)
 let pp_one_ind table co p pl cv =
-  let pl = rename_tvars keywords pl in
+  let pl = scala_tvars pl in
   let targs = pp_type_params pl in
   let typename = pp_global table Type p.ip_typename_ref in
   let rawname = if co then str "__" ++ typename else typename in
@@ -654,7 +706,7 @@ let pp_record table fields packet =
   let ind = packet.ip_typename_ref in
   let typename = pp_global table Type ind in
   let cname = pp_global table Cons packet.ip_consnames_ref.(0) in
-  let pl = rename_tvars keywords packet.ip_vars in
+  let pl = scala_tvars packet.ip_vars in
   let targs = pp_type_params pl in
   let fieldnames = pp_fields table ind fields in
   let l = List.combine fieldnames packet.ip_types.(0) in
@@ -716,7 +768,7 @@ let pp_decl table = function
   | Dtype (r, l, t) ->
       if is_inline_custom r then mt ()
       else
-        let l = rename_tvars keywords l in
+        let l = scala_tvars l in
         let st =
           try
             let ids,s = find_type_custom r in
@@ -775,6 +827,7 @@ and pp_module_expr table = function
 (* Closes the [object] opened by [preamble]. *)
 let pp_struct table s =
   struct_info := register_structure s;
+  register_global_names table;
   let pp_sel (mp,sel) = State.with_visibility table mp [] begin fun table ->
     prlist_strict (fun e -> pp_structure_elem table e) sel
   end in
@@ -799,8 +852,7 @@ let scala_descr = {
   sig_preamble = (fun _ _ _ _ _ -> mt ());
   pp_sig = (fun _ _ -> mt ());
   pp_decl = pp_decl;
-  (* Scala identifiers cannot contain an apostrophe, unlike OCaml's. *)
-  unquote = String.map (fun c -> if c == '\'' then '_' else c);
+  unquote = unquote_global;
   upper_types = true;
   char_type = Some "Char";
   string_type = Some "String";

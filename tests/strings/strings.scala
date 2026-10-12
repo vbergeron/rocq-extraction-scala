@@ -36,7 +36,7 @@ def headOr(c: Char)(s: String): Char =
   (((fE: Any => Any) => (fS: Any => Any) => (s: String) =>
       if (s.isEmpty) fE(()) else fS(s.head).asInstanceOf[Any => Any](s.tail))
      ((_: Any) => c)
-     (((c_ : Char) => (_: Any) => c_).asInstanceOf[Any => Any => Any])
+     (((c0: Char) => (_: Any) => c0).asInstanceOf[Any => Any => Any])
      (s)).asInstanceOf[Char]
 
 }
