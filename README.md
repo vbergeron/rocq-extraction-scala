@@ -72,6 +72,8 @@ The usual extraction commands then produce Scala 3 source.
   `option`, `unit`, `list`, `prod` and `sum` to Scala's `Boolean`, `Option`,
   `Unit`, `List`, tuples and `Either` (and `sumbool`/`sumor` to `Boolean`/`Option`),
   like `ExtrOcamlBasic` does for OCaml.
+  It also replaces their basic operations (`andb`, `orb`, `implb`, `xorb`,
+  `negb`, `fst`, `snd`, `option_map`, `app`, `ListDef.map`) with Scala's own.
 - `Extract Inductive` and `Extract Constant` work as for the other
   languages. Literals are extracted natively when `ascii`/`string` are
   extracted to `Char`/`String`.
