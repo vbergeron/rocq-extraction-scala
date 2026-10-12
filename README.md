@@ -67,6 +67,13 @@ The usual extraction commands then produce Scala 3 source.
 - `Set Extraction Scala Package "com.foo.bar".` adds a `package` clause at
   the top of every extracted file. `Unset Extraction Scala Package.`
   removes it.
+- `Set Extraction Scala Pure Functions.` prints function types with Scala's
+  pure arrow, `A -> B` (and by-name parameters as `-> T`), instead of
+  `A => B`: extracted code is pure. It also adds
+  `import language.experimental.pureFunctions` at the top of every
+  extracted file, which Scala 3 (checked with 3.9) requires for this
+  syntax. Lambdas still use `=>`. `Unset Extraction Scala Pure Functions.`
+  (the default) goes back to `=>`.
 - `From ScalaExtraction Require Import ExtrScalaBasic.` extracts `bool`,
   `option`, `unit`, `list`, `prod` and `sum` to Scala's `Boolean`, `Option`,
   `Unit`, `List`, tuples and `Either` (and `sumbool`/`sumor` to `Boolean`/`Option`),

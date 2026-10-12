@@ -1,0 +1,50 @@
+import language.experimental.pureFunctions
+
+object Main {
+
+final class RocqLazy[T](thunk: -> T) {
+  lazy val force: T = thunk
+}
+object RocqLazy {
+  def apply[T](thunk: -> T): RocqLazy[T] = new RocqLazy(thunk)
+}
+
+sealed trait Nat
+final case class O() extends Nat
+final case class S(_1: Nat) extends Nat
+
+
+def compose[t1, t2, t3](g: t2 -> t3)(f: t1 -> t2)(x: t1): t3 =
+  g((f(x)))
+
+def twice[t1](f: t1 -> t1)(x: t1): t1 =
+  f((f(x)))
+
+sealed trait __Stream[a]
+final case class Scons[a](_1: a, _2: Stream[a]) extends __Stream[a]
+
+type Stream[a] = RocqLazy[__Stream[a]]
+
+def const_stream(n: Nat): Stream[Nat] =
+  RocqLazy(Scons(n, const_stream(n)))
+
+}
+
+package com.foo.bar
+
+import language.experimental.pureFunctions
+
+object Main {
+
+def twice[t1](f: t1 -> t1)(x: t1): t1 =
+  f((f(x)))
+
+}
+
+object Main {
+
+def twice[t1](f: t1 => t1)(x: t1): t1 =
+  f((f(x)))
+
+}
+

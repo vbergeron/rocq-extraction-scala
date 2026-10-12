@@ -202,6 +202,24 @@
   (action (run python3 ../check_scala.py poly.log))))
 
 (subdir
+ pure_functions
+ (rule
+  (deps pure_functions.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to pure_functions.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction pure_functions.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff pure_functions.out pure_functions.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py pure_functions.log)
+  (action (run python3 ../check_scala.py pure_functions.log))))
+
+(subdir
  records
  (rule
   (deps records.v (package rocq-extraction-scala))
