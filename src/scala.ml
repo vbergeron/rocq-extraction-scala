@@ -424,6 +424,50 @@ type apply_state = {
   pinned_any : Int.Set.t;
 }
 
+(* A callee's type variables, as matched against the caller's own types:
+   [Some ty] once a variable is pinned to the caller-side type [ty],
+   [None] when two arguments pin it inconsistently. *)
+type callee_subst = ml_type option Int.Map.t
+
+(* Matches a callee's parameter type [pat] against the caller-side type
+   [actual] of the argument it gets, extending [sigma] with each callee
+   type variable it pins. Only a type Scala itself would infer from the
+   argument pins a variable: never [Any] ([Tunknown]) or an erased or
+   axiomatic type, and a [Tglob] known only by its head (a constructor
+   value, see [known_type]) pins none of its type arguments. *)
+let rec bind_callee_tvars (sigma : callee_subst) pat actual =
+  match pat, actual with
+  | (Tvar _ | Tvar' _), (Tunknown | Taxiom | Tdummy _ | Tmeta _) -> sigma
+  | (Tvar i | Tvar' i), a ->
+    Int.Map.update i (function
+        | None -> Some (Some a)
+        | Some (Some b) when eq_ml_type a b -> Some (Some b)
+        | Some _ -> Some None) sigma
+  | Tarr (p1,p2), Tarr (a1,a2) -> bind_callee_tvars (bind_callee_tvars sigma p1 a1) p2 a2
+  | Tglob (r1,l1), Tglob (r2,l2)
+    when eq_glob_head r1 r2 && Int.equal (List.length l1) (List.length l2) ->
+    List.fold_left2 bind_callee_tvars sigma l1 l2
+  | _ -> sigma
+
+let rec subst_callee_tvars (sigma : callee_subst) = function
+  | (Tvar i | Tvar' i) as t ->
+    (match Int.Map.find_opt i sigma with Some (Some a) -> a | _ -> t)
+  | Tarr (a,b) -> Tarr (subst_callee_tvars sigma a, subst_callee_tvars sigma b)
+  | Tglob (r,l) -> Tglob (r, List.map (subst_callee_tvars sigma) l)
+  | t -> t
+
+(* A reference to a generic top-level definition other than [ctx.self],
+   passed around as a value: its [find_glob_type] is phrased in its own
+   type variables, not the caller's, so it can't pin anything. *)
+let rec is_foreign_generic_glob ctx = function
+  | MLmagic a -> is_foreign_generic_glob ctx a
+  | MLglob r as f ->
+    not (is_self_call ctx.self f) &&
+    (match find_glob_type r with
+     | Some t -> not (Int.Set.is_empty (tvars_of t))
+     | None -> false)
+  | _ -> false
+
 (* The statically known type of an already-built expression, using the
    same "known positions" as [tenv]/[glob_types] plus [MLapp]
    ([resolve_apply_type]) and an [MLcase] whose branches all agree
@@ -509,14 +553,45 @@ and apply_one_step ctx self_relative st arg =
 
 (* The type a whole (possibly partial) application [ty] applied to
    [args] would end up with if printed by [pp_apply_typed] - folds
-   [apply_one_step] over [args], [None] as soon as any step falls back. *)
+   [apply_one_step] over [args], [None] as soon as any step falls back.
+
+   A self-relative call's type is already phrased in the caller's own
+   type variables. Any other callee's is phrased in *its* own: each of
+   them is translated into the caller-side type an argument applied
+   as is pins it to ([bind_callee_tvars]), the way Scala infers it, and
+   the result is known only when every variable it mentions is pinned
+   that way. An argument cast to an [Any]-instantiated type pins its
+   variables to [Any] on the Scala side, so they stay unknown, and the
+   caller casts the result instead of trusting the callee's raw
+   [List[T1]] to be its own [List[A]] (or [T1] to be its own [t1]). *)
 and resolve_apply_type ctx self_relative ty args =
-  let final =
-    List.fold_left
-      (fun st arg -> snd (apply_one_step ctx self_relative st arg))
-      { ty = Some ty; pinned_real = Int.Set.empty; pinned_any = Int.Set.empty } args
+  let step (st, sigma) arg =
+    let verdict, st' = apply_one_step ctx self_relative st arg in
+    let sigma = match verdict, st.ty with
+      | `Direct None, Some (Tarr (t1, _))
+        when not self_relative && not (is_foreign_generic_glob ctx arg) ->
+        (match known_type ctx arg with
+         | Some a -> bind_callee_tvars sigma t1 (devar' a)
+         | None -> sigma)
+      | _ -> sigma
+    in
+    st', sigma
   in
-  final.ty
+  let final, sigma =
+    List.fold_left step
+      ({ ty = Some ty; pinned_real = Int.Set.empty; pinned_any = Int.Set.empty },
+       Int.Map.empty) args
+  in
+  if self_relative then final.ty
+  else match final.ty with
+    | None -> None
+    | Some t ->
+      let pinned i =
+        not (Int.Set.mem i final.pinned_any) &&
+        (match Int.Map.find_opt i sigma with Some (Some _) -> true | _ -> false)
+      in
+      if Int.Set.for_all pinned (tvars_of t) then Some (subst_callee_tvars sigma t)
+      else None
 
 (* Sibling fields of one constructor call can share an inductive type
    parameter (e.g. [Scons : A -> stream A -> stream A] has [A] in both
