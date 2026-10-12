@@ -1,7 +1,7 @@
 object Main {
 
 sealed trait Nat
-final case class O() extends Nat
+case object O extends Nat
 final case class S(_1: Nat) extends Nat
 
 
