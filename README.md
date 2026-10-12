@@ -21,13 +21,13 @@ Recursive Extraction addNat.
 object Main {
 
 sealed trait Nat
-final case class O() extends Nat
+case object O extends Nat
 final case class S(_1: Nat) extends Nat
 
 
 def addNat(n: Nat)(m: Nat): Nat =
   n match {
-  case O() => m
+  case O => m
   case S(p) => S(addNat(p)(m))
   }
 
@@ -107,6 +107,8 @@ types erased, as for OCaml), which this plugin prints as Scala 3.
 | Rocq | Scala |
 |---|---|
 | Inductive type | `sealed trait` and one `final case class` per constructor, fields `_1`, `_2`, … |
+| Type parameter occurring only at covariant positions in the fields | Covariant: `sealed trait Tree[+a]`. Not for a parameter under a function domain (`a => X`), or inside a type whose variance is unknown (an `Extract Inductive` replacement, a type abbreviation, a record, a coinductive) |
+| Constructor without fields | `case object Leaf extends Tree[Nothing]`, when the type has no parameters or only covariant ones; written `Leaf` in terms and patterns |
 | Type parameters | Scala type parameters: `Tree[a]` |
 | Record | One `final case class` with named fields, plus a `type` alias when the record and constructor names differ |
 | Single-constructor, single-field inductive | `type` alias of the field's type |
@@ -114,7 +116,7 @@ types erased, as for OCaml), which this plugin prints as Scala 3.
 | `Definition`, `Fixpoint` | A method with one parameter list per argument, fully typed: `def treeMap[t1, t2](f: t1 => t2)(t: Tree[t1]): Tree[t2]`. Calls are plain method calls, and a self-recursive call in tail position compiles to a loop; a partial application `treeMap(f)` is eta-expanded by Scala into a function value. A definition without parameters is a `val` (`def` if polymorphic) |
 | `Extract Constant` | A `val` (`def` if polymorphic) holding the given expression, with its full type: `val andb: Boolean => Boolean => Boolean = a => b => a && b` |
 | Polymorphic definition | `def` with type parameters `[t1, t2, ...]`; every use passes them explicitly: `treeMap[t1, t2](f)(l)` |
-| Constructor of a polymorphic type | Explicit type arguments: `Node[t2](...)`, `MyNil[t1]()` |
+| Constructor of a polymorphic type | Explicit type arguments: `Node[t2](...)` |
 | Application | Curried calls: `f(a)(b)` |
 | `match` | `match` with constructor patterns |
 | `let x := a in b` | `{ val x: T = a; b }`, or `{ def x[t3]: T = a; b }` when `a` is a function used at several types |

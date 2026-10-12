@@ -144,7 +144,7 @@ let pp_package_header () =
    structure is being printed: [tenv], the types of its globals and
    constructors, for [Mltyping]; [needs_lazy], whether it has any
    coinductive type, which decides whether [RocqLazy] gets emitted (see
-   [preamble]).
+   [preamble]); [variance] and [case_objects] (see [register_variance]).
 
    Held in one [ref] rather than passed as an argument because
    [pp_decl] can be called on its own, once [pp_struct] has already
@@ -156,18 +156,131 @@ let pp_package_header () =
 type struct_info = {
   tenv : Mltyping.env;
   needs_lazy : bool;
+  variance : bool list Refmap'.t;
+  case_objects : unit Refmap'.t;
 }
 
-let struct_info = ref { tenv = Mltyping.env_of_structure []; needs_lazy = false }
+let struct_info = ref {
+    tenv = Mltyping.env_of_structure []; needs_lazy = false;
+    variance = Refmap'.empty; case_objects = Refmap'.empty }
 
 let rec has_coinductive (_,se) = match se with
   | SEdecl (Dind ind) -> ind.ind_kind == Coinductive
   | SEmodule { ml_mod_expr = MEstruct (_,sel) } -> List.exists has_coinductive sel
   | SEdecl _ | SEmodule _ | SEmodtype _ -> false
 
+(* Whether the [k]-th parameter (from 0) of the inductive type [r] is
+   covariant, in [variance]. *)
+let covariant_param variance r k =
+  match Refmap'.find_opt r variance with
+  | Some l -> (match Stdlib.List.nth_opt l k with Some b -> b | None -> false)
+  | None -> false
+
+let rec tvar_occurs i = function
+  | Tvar j | Tvar' j -> Int.equal i j
+  | Tmeta { contents = Some t } -> tvar_occurs i t
+  | Tarr (a,b) -> tvar_occurs i a || tvar_occurs i b
+  | Tglob (_,l) -> List.exists (tvar_occurs i) l
+  | Tmeta _ | Tdummy _ | Tunknown | Taxiom -> false
+
+(* Whether the type variable [i] occurs in [t] only at covariant
+   positions (only at contravariant ones when not [pos]), Scala's rule:
+   a function's domain flips the position, and an argument of a type
+   constructor keeps it when [cov] says that parameter is covariant,
+   and must not mention [i] at all otherwise. A [sig] is printed as the
+   type it wraps (see [pp_type_with]). *)
+let rec only_at cov pos i = function
+  | Tvar j | Tvar' j -> pos || not (Int.equal i j)
+  | Tmeta { contents = Some t } -> only_at cov pos i t
+  | Tarr (a,b) -> only_at cov (not pos) i a && only_at cov pos i b
+  | Tglob (r,l) when not (keep_singleton ()) && Rocqlib.check_ref sig_type_name r.glob ->
+    (match l with a :: _ -> only_at cov pos i a | [] -> true)
+  | Tglob (r,l) ->
+    let rec args k = function
+      | [] -> true
+      | a :: l ->
+        (if cov r k then only_at cov pos i a else not (tvar_occurs i a)) && args (k+1) l
+    in
+    args 0 l
+  | Tmeta _ | Tdummy _ | Tunknown | Taxiom -> true
+
+(* The variance of an inductive block's type parameters, added to
+   [variance], and its constructors printed as a [case object] (see
+   [pp_one_ind]), added to [case_objects].
+
+   A Rocq value is immutable, so a covariant parameter can never be
+   unsound at runtime; what decides is whether Scala accepts it, i.e.
+   whether the parameter occurs only at covariant positions in every
+   constructor field ([only_at]). The parameters of the types of the
+   same block are assumed covariant, then the ones that are not are
+   removed until nothing changes. The parameters of any other type are
+   covariant only when that type is an earlier block's, already in
+   [variance]: an [Extract Inductive] replacement, a type abbreviation,
+   a record, a singleton or a coinductive (a [RocqLazy] alias) counts as
+   invariant, and has no entry.
+
+   A constructor without fields is a [case object] when its type has no
+   parameters, or only covariant ones: it extends the type at [Nothing],
+   which is then a subtype of every instance. *)
+let register_variance (variance, case_objects) ind =
+  match ind.ind_kind with
+  | Standard ->
+    let packets =
+      List.filter (fun p -> not p.ip_logical && not (is_custom p.ip_typename_ref))
+        (Array.to_list ind.ind_packets)
+    in
+    let step m =
+      let cov = covariant_param m in
+      List.fold_left (fun m' p ->
+          let l = List.mapi (fun k _ ->
+              cov p.ip_typename_ref k &&
+              Array.for_all (List.for_all (only_at cov true (k+1))) p.ip_types)
+              p.ip_vars
+          in
+          Refmap'.add p.ip_typename_ref l m') m packets
+    in
+    let same m m' =
+      List.for_all (fun p ->
+          List.equal (fun a b -> a == b)
+            (Refmap'.find p.ip_typename_ref m) (Refmap'.find p.ip_typename_ref m'))
+        packets
+    in
+    let rec fix m = let m' = step m in if same m m' then m else fix m' in
+    let variance =
+      fix (List.fold_left (fun m p ->
+          Refmap'.add p.ip_typename_ref (List.map (fun _ -> true) p.ip_vars) m)
+          variance packets)
+    in
+    let case_objects =
+      List.fold_left (fun co p ->
+          if List.for_all (fun b -> b) (Refmap'.find p.ip_typename_ref variance) then
+            let co = ref co in
+            Array.iteri (fun j fields ->
+                if List.is_empty fields then
+                  co := Refmap'.add p.ip_consnames_ref.(j) () !co)
+              p.ip_types;
+            !co
+          else co)
+        case_objects packets
+    in
+    (variance, case_objects)
+  | Singleton | Coinductive | Record _ -> (variance, case_objects)
+
+let rec register_variance_elem acc (_,se) = match se with
+  | SEdecl (Dind ind) -> register_variance acc ind
+  | SEmodule { ml_mod_expr = MEstruct (_,sel) } -> List.fold_left register_variance_elem acc sel
+  | SEdecl _ | SEmodule _ | SEmodtype _ -> acc
+
 let register_structure (s : ml_structure) =
+  let variance, case_objects =
+    List.fold_left (fun acc (_,sel) -> List.fold_left register_variance_elem acc sel)
+      (Refmap'.empty, Refmap'.empty) s
+  in
   { tenv = Mltyping.env_of_structure s;
-    needs_lazy = List.exists (fun (_,sel) -> List.exists has_coinductive sel) s }
+    needs_lazy = List.exists (fun (_,sel) -> List.exists has_coinductive sel) s;
+    variance; case_objects }
+
+let is_case_object r = Refmap'.mem r (!struct_info).case_objects
 
 (* [Lazy.t]/[lazy]/[Lazy.force] reimplemented on Scala's native
    laziness: a by-name parameter [=> T] is a thunk, a [lazy val] caches
@@ -307,11 +420,23 @@ let pp_type_args ctx = function
   | l -> str "[" ++ prlist_with_sep (fun () -> str ", ") (pp_ty ctx false) l ++ str "]"
 
 (* Whether a Scala value of type [t1] can be used at type [t2] without a
-   cast: Scala functions are contravariant in their domain, and every
-   value is an [Any]. *)
+   cast: Scala functions are contravariant in their domain, an inductive
+   type is covariant in its covariant parameters (see
+   [register_variance]), and every value is an [Any]. *)
 let rec subtype t1 t2 = match t1, t2 with
   | _, (Tunknown | Taxiom) -> true
   | Tarr (a1,b1), Tarr (a2,b2) -> subtype a2 a1 && subtype b1 b2
+  | Tglob (r1,l1), Tglob (r2,l2)
+    when GlobRef.CanOrd.equal r1.glob r2.glob
+      && Int.equal (List.length l1) (List.length l2)
+      && Refmap'.mem r1 (!struct_info).variance ->
+    let rec args k l1 l2 = match l1, l2 with
+      | a :: l1, b :: l2 ->
+        (if covariant_param (!struct_info).variance r1 k then subtype a b
+         else Mltyping.eq_type (!struct_info).tenv a b) && args (k+1) l1 l2
+      | _ -> true
+    in
+    args 0 l1 l2 || Mltyping.eq_type (!struct_info).tenv t1 t2
   | _ -> Mltyping.eq_type (!struct_info).tenv t1 t2
 
 (* Let-bound terms printed as a polymorphic local [def]. *)
@@ -404,13 +529,16 @@ let rec pp_expr ctx par e =
   | TPrim _ -> str "throw new RuntimeException(\"EXTRACTION OF ARRAY NOT IMPLEMENTED\")"
 
 (* A custom constructor (e.g. via [Extract Inductive]) is printed as
-   given, without type arguments. A coinductive value is delayed via
-   [RocqLazy]; forced back where a [match] reads it (see [pp_case]). *)
+   given, without type arguments, and a [case object] (see
+   [register_variance]) as its bare name. A coinductive value is delayed
+   via [RocqLazy]; forced back where a [match] reads it (see
+   [pp_case]). *)
 and pp_cons ctx e r targs args =
   let c = Mltyping.erase e in
   if is_native_char c then pp_native_char c
   else if is_native_string c then pp_native_string c
-  else if List.is_empty args && is_inline_custom r then pp_global ctx.table Cons r
+  else if List.is_empty args && (is_inline_custom r || is_case_object r) then
+    pp_global ctx.table Cons r
   else
     let targs = if is_inline_custom r then mt () else pp_type_args ctx targs in
     let cons =
@@ -526,8 +654,9 @@ and pp_record_proj ctx a br =
    parentheses of its own. *)
 and pp_cons_pat ctx r ppl =
   match ppl with
-  | [] when is_inline_custom r ->
-    (* As for a constructor term: e.g. a literal like ["true"]. *)
+  | [] when is_inline_custom r || is_case_object r ->
+    (* As for a constructor term: e.g. a literal like ["true"], or a
+       [case object]. *)
     pp_global ctx.table Cons r
   | _ ->
     pp_global ctx.table Cons r ++ str "(" ++ prlist_with_sep (fun () -> str ", ") identity ppl ++ str ")"
@@ -621,14 +750,37 @@ let pp_singleton table packet =
    trait]/[case class] hierarchy is named [__Name] and [Name] itself
    becomes a [RocqLazy[__Name]] alias, so a coinductive value is always
    wrapped, never a bare case class (see [pp_expr_cons]'s [RocqLazy]
-   wrap and [pp_expr_case]'s [.force]). *)
+   wrap and [pp_expr_case]'s [.force]).
+
+   A covariant type parameter (see [register_variance]) is declared
+   [+a] on the [sealed trait], and a constructor without fields of a
+   type with no parameters but covariant ones is a [case object]
+   extending the type at [Nothing]. *)
 let pp_one_ind table co p pl cv =
   let pl = rename_tvars keywords pl in
   let targs = pp_type_params pl in
+  let variance = (!struct_info).variance in
+  let trait_targs = match pl with
+    | [] -> mt ()
+    | _ ->
+      str "[" ++
+      prlist_with_sep (fun () -> str ", ")
+        (fun (k, id) ->
+           (if covariant_param variance p.ip_typename_ref k then str "+" else mt ()) ++ pr_id id)
+        (List.mapi (fun k id -> (k, id)) pl) ++
+      str "]"
+  in
   let typename = pp_global table Type p.ip_typename_ref in
   let rawname = if co then str "__" ++ typename else typename in
   let pp_constructor i typs =
     let cname = pp_global table Cons p.ip_consnames_ref.(i) in
+    if is_case_object p.ip_consnames_ref.(i) then
+      let nothing = match pl with
+        | [] -> mt ()
+        | _ -> str "[" ++ prlist_with_sep (fun () -> str ", ") (fun _ -> str "Nothing") pl ++ str "]"
+      in
+      hov 2 (str "case object " ++ cname ++ str " extends " ++ rawname ++ nothing)
+    else
     (* Fields get their real, precise Rocq type, directly from [typs]. *)
     let fields = List.mapi (fun j t -> str "_" ++ int (j+1) ++ str ": " ++ pp_type table false pl t) typs in
     hov 2 (str "final case class " ++ cname ++ targs ++ str "(" ++
@@ -639,7 +791,7 @@ let pp_one_ind table co p pl cv =
     hov 2 (str "type " ++ typename ++ targs ++ str " = Unit") ++
     spc () ++ pp_comment (str "empty inductive")
   else
-    str "sealed trait " ++ rawname ++ targs ++ fnl () ++
+    str "sealed trait " ++ rawname ++ trait_targs ++ fnl () ++
     v 0 (prvecti (fun i typs -> pp_constructor i typs ++ fnl ()) cv) ++
     (if not co then mt ()
      else fnl () ++

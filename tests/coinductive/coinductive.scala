@@ -8,17 +8,17 @@ object RocqLazy {
 }
 
 sealed trait Nat
-final case class O() extends Nat
+case object O extends Nat
 final case class S(_1: Nat) extends Nat
 
 
-sealed trait List[a]
-final case class Nil[a]() extends List[a]
+sealed trait List[+a]
+case object Nil extends List[Nothing]
 final case class Cons[a](_1: a, _2: List[a]) extends List[a]
 
 
-sealed trait MyList[a]
-final case class MyNil[a]() extends MyList[a]
+sealed trait MyList[+a]
+case object MyNil extends MyList[Nothing]
 final case class MyCons[a](_1: a, _2: MyList[a]) extends MyList[a]
 
 
@@ -37,7 +37,7 @@ def mapStream[t1, t2](f: t1 => t2)(s: Stream[t1]): Stream[t2] =
 
 def take(n: Nat)(s: Stream[Nat]): List[Nat] =
   n match {
-  case O() => Nil[Nat]()
+  case O => Nil
   case S(p) => s.force match {
                case Scons(h, t) => Cons[Nat](h, take(p)(t))
                }
@@ -45,7 +45,7 @@ def take(n: Nat)(s: Stream[Nat]): List[Nat] =
 
 def takeList[t1](n: Nat)(s: Stream[t1]): MyList[t1] =
   n match {
-  case O() => MyNil[t1]()
+  case O => MyNil
   case S(p) =>
     s.force match {
     case Scons(a, t) => MyCons[t1](a, takeList[t1](p)(t))

@@ -292,6 +292,24 @@
   (action (run python3 ../check_scala.py typing.log))))
 
 (subdir
+ variance
+ (rule
+  (deps variance.v (package rocq-extraction-scala))
+  (action
+   (with-outputs-to variance.log
+    (run rocq c -q -test-mode -Q ../../theories ScalaExtraction variance.v))))
+
+ (rule
+  (alias runtest)
+  (action (diff variance.scala variance.log)))
+
+ (rule
+  (alias scalac)
+  (enabled_if %{bin-available:scalac})
+  (deps ../check_scala.py variance.log)
+  (action (run python3 ../check_scala.py variance.log))))
+
+(subdir
  z_bigint
  (rule
   (deps z_bigint.v (package rocq-extraction-scala))
