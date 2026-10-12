@@ -85,7 +85,7 @@ Definition swapPair (A B : Type) (p : pair A B) : pair B A := MkPair (psnd p) (p
 
 (* Primes: a Scala identifier cannot contain one, nor end with an
    underscore ([n_: Nat] would read as the identifier [n_:]), so [n']
-   becomes [_n]. *)
+   becomes [n]. *)
 Definition primes (n' : nat) : nat := let m' := S n' in m' + m'.
 
 Recursive Extraction primes letPoly sumTo useDep usePoly succAll addAll caseFun usePred useAx

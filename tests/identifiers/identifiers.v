@@ -1,9 +1,10 @@
 (* Scala 3 extraction backend: names ending with [_] or ['], which
    Scala identifiers must not (a colon after [x_] would be part of the
-   identifier [x_:]): their trailing underscores move to the front, [x_]
-   and [x'] both becoming [_x], told apart by a number when both are in
-   scope. As definitions, lambda parameters, [let] and [match] binders,
-   and a local fixpoint and its parameters. *)
+   identifier [x_:]): their trailing underscores and apostrophes are
+   dropped, and a number tells the name apart from another one in scope
+   that it would then clash with. As definitions, lambda parameters,
+   [let] and [match] binders, and a local fixpoint and its
+   parameters. *)
 
 From ScalaExtraction Require Import ScalaExtraction.
 
@@ -35,9 +36,14 @@ Definition localFix (n_ : nat) : nat :=
 (* [x_] and [x'] in the same scope. *)
 Definition both (x_ x' : nat) : nat := x' + x_ + x'.
 
-(* A global name. *)
+(* [n'] next to [n]. *)
+Definition shadow (n : nat) : nat := let n' := S n in n' + n.
+
+(* Global names: [plus'] next to [plus]. *)
+Definition plus (n : nat) : nat := n.
+
 Definition plus' (n : nat) : nat := S n.
 
-Definition usePlus (n : nat) : nat := plus' n.
+Definition usePlus (n : nat) : nat := plus (plus' n).
 
-Recursive Extraction lam under localFix both usePlus.
+Recursive Extraction lam under localFix both shadow usePlus.
