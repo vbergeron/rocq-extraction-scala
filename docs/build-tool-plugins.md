@@ -244,35 +244,63 @@ it was checked with.
 ## Repository layout and build
 
 In this repository, so that the build plugins are versioned and tested
-with the extractor they drive:
+with the extractor they drive. Each plugin is built by its own tool: a
+Mill build for the core and the Mill plugin, an sbt build for the sbt
+plugin.
 
 ```
 integrations/
-  build.sbt               # one sbt build for the three artifacts
-  core/                   # rocq-extraction-build-core, Scala 2.12 + 3
-  sbt-plugin/             # sbt-rocq-extraction, sbtPlugin, Scala 2.12
-  mill-plugin/            # mill-rocq-extraction, Scala 3, Mill libs "provided"
+  build.mill              # Mill build: core + Mill plugin
+  core/                   # rocq-extraction-build-core
+    src/                  #   shared sources, valid Scala 2.12 and 3
+    test/
+  mill-plugin/            # mill-rocq-extraction, Scala 3, Mill libs compileMvnDeps
+  sbt-plugin/             # sbt build: sbt-rocq-extraction, Scala 2.12
+    build.sbt
+    project/
+    src/main/scala/
+    src/sbt-test/         #   scripted tests
   examples/{sbt,mill}/    # small projects, also used by the docs
 ```
 
 - `core` has no dependencies beyond the JDK (`ProcessBuilder`,
   `java.nio.file`), so it causes no conflicts inside either tool's
-  classloader, and cross-builds trivially. Unit tests (munit) for the
-  `rocq dep` parser, toposort, driver generation, output sync and error
-  parsing, with fake `rocq` executables where a process is needed.
-- One sbt build, because `scripted` is the standard way to test an sbt
-  plugin; the Mill plugin is an ordinary library there, and `mill-testkit`
-  runs Mill from any test.
-- Published to Maven Central under `io.github.vbergeron` with
-  `sbt-ci-release`, on tags `integrations-vX.Y.Z`, independently of the
-  opam package's version. The README documents which plugin versions go
-  with which extractor versions (the plugins only rely on commands and
-  options, so this should rarely matter).
+  classloader, and its sources compile unchanged with Scala 2.12 and 3.
+  Unit tests (munit) for the `rocq dep` parser, toposort, driver
+  generation, output sync and error parsing, with fake `rocq` executables
+  where a process is needed.
+- **Mill build** (`integrations/build.mill`): `core` as a cross module
+  over Scala 3 (published, used by the Mill plugin) and 2.12 (compiled and
+  tested only, never published: it guards the sources against Scala 3
+  only syntax, which would otherwise break only the sbt build).
+  `millPlugin` depends on `core[3]`, has the Mill libraries as compile-only
+  dependencies, publishes with Mill's plugin suffix (`_mill1_3`), and runs
+  `mill-testkit` integration tests over `examples/mill` and smaller test
+  projects. Both artifacts are published to Maven Central with Mill's
+  `SonatypeCentralPublishModule`.
+- **sbt build** (`integrations/sbt-plugin`): one project with
+  `sbtPlugin := true`. It compiles the core's sources directly
+  (`Compile / unmanagedSourceDirectories += baseDirectory.value / ".." / "core" / "src"`)
+  instead of depending on a published core: no Scala 2.12 core artifact,
+  no ordering between the two builds when developing (`sbt scripted`
+  works on a fresh checkout) or releasing, and the plugin jar is
+  self-contained. Tested with `scripted` over `src/sbt-test/` and
+  `examples/sbt`; published with `sbt-ci-release`.
+- Both builds read the version from one place (a `VERSION` file in
+  `integrations/`, or the git tag `integrations-vX.Y.Z`), so a release
+  publishes the core, the Mill plugin and the sbt plugin with the same
+  version, independently of the opam package's version. The README
+  documents which plugin versions go with which extractor versions (the
+  plugins only rely on commands and options, so this should rarely
+  matter).
 - CI: a new `integrations` job in `.github/workflows/ci.yml`, after the
   existing one: it reuses the cached Rocq install, `dune install`s the
-  extractor into the same prefix, installs a JDK, sbt and Mill, then runs
-  the unit tests, the scripted tests and the Mill integration tests. The
-  `core` unit tests need no Rocq and also run on their own.
+  extractor into the same prefix, installs a JDK, Mill and sbt, then runs
+  `./mill __.test` (core unit tests for both Scala versions, Mill
+  integration tests) and `sbt scripted` in `sbt-plugin/`. The core unit
+  tests need no Rocq and also run on their own. A release job on
+  `integrations-v*` tags runs `./mill mill.scalalib.SonatypeCentralPublishModule/`
+  and `sbt ci-release`.
 
 ## Milestones
 
@@ -280,11 +308,13 @@ integrations/
    open questions below: `-o` plus a second `-Q` for out-of-tree `.vo`
    files, injecting the output directory into script mode, `rocq dep`
    output on a multi-root project.
-2. **Core library**: toolchain check, `rocq dep` parsing, incremental
-   compile, driver generation, output sync, error parsing; unit tests.
-3. **sbt plugin**, declarative mode, `Compile` only; scripted tests;
-   example project.
-4. **Mill plugin**, same scope; integration tests; example project.
+2. **Mill build and core library**: `build.mill` with the cross-built
+   core; toolchain check, `rocq dep` parsing, incremental compile, driver
+   generation, output sync, error parsing; unit tests on Scala 2.12 and 3.
+3. **Mill plugin**, declarative mode, main module only; integration
+   tests; example project.
+4. **sbt build and plugin**, same scope, compiling the core's sources;
+   scripted tests; example project.
 5. Script mode, `Test` configuration / test modules, Mill `RocqModule`
    with `moduleDeps`.
 6. Error positions through the problem reporters (BSP); Scala version
