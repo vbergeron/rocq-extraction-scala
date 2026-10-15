@@ -1,0 +1,18 @@
+//| mill-jvm-version: system
+//| mvnDeps:
+//| - io.github.vbergeron::mill-rocq-extraction::PLUGIN_VERSION
+package build
+
+import mill.*, scalalib.*
+import rocqextraction.*
+
+/** Rocq files only, used by `app`'s. */
+object lib extends RocqModule
+
+object app extends ScalaModule, RocqExtractionModule {
+  def scalaVersion = "3.7.4"
+  override def rocqModuleDeps = Seq(lib)
+  def rocqPreludes = Seq(RocqPrelude.NatBigInt)
+  def rocqScalaPackage = Some("com.example.verified")
+  def rocqExtractions = Seq(RocqExtraction("Arith", "App.Arith", Seq("addNat")))
+}
