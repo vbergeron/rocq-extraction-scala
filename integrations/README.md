@@ -15,6 +15,9 @@ design.
 
 Both are built with Mill (`build.mill`).
 
+[`examples/mill`](examples/mill) is a small project using the plugin end
+to end: a sort proved correct in Rocq, extracted and used from Scala.
+
 ## Using the Mill plugin
 
 Rocq with `rocq-extraction-scala` must be installed (see the

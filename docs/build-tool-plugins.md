@@ -318,8 +318,7 @@ integrations/
 2. *(done)* **Mill build and core library**: `build.mill` with the cross-built
    core; toolchain check, `rocq dep` parsing, incremental compile, driver
    generation, output sync, error parsing; unit tests on Scala 2.12 and 3.
-3. *(done, except `examples/mill`: the integration test project stands in
-   for it)* **Mill plugin**, declarative mode, main module only;
+3. *(done)* **Mill plugin**, declarative mode, main module only;
    integration tests; example project.
 4. **sbt build and plugin**, same scope, compiling the core's sources;
    scripted tests; example project.

@@ -103,3 +103,10 @@ jobs:
         env:
           ROCQ_INTEGRATION: required
         run: ./mill __.test + mill-plugin.integration
+
+      - name: Run the Mill example
+        working-directory: integrations/examples/mill
+        run: |
+          (cd ../.. && ./mill __.publishLocal)
+          ./mill app.test
+          ./mill app.run 5 3 8 1 3

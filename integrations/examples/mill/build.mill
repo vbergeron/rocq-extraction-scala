@@ -1,0 +1,33 @@
+//| mill-version: 1.3.0
+//| mill-jvm-version: system
+//| mvnDeps:
+//| - io.github.vbergeron::mill-rocq-extraction::0.1.0-SNAPSHOT
+// An example of the Mill plugin: a verified insertion sort, proved in
+// Rocq, extracted to Scala and used from a Scala application.
+package build
+
+import mill.*, scalalib.*
+import rocqextraction.*
+
+/** Rocq files only: the sort and its proofs, in sorting/rocq/, under the
+  * logical name `Sorting`. */
+object sorting extends RocqModule
+
+/** The application. Its Rocq files (app/rocq/, logical name `App`) use
+  * `sorting`'s; both are extracted into its generated sources. */
+object app extends ScalaModule, RocqExtractionModule {
+  def scalaVersion = "3.7.4"
+  override def rocqModuleDeps = Seq(sorting)
+
+  // nat to BigInt, list to List, option to Option, bool to Boolean
+  def rocqPreludes = Seq(RocqPrelude.NatBigInt)
+  def rocqScalaPackage = Some("com.example.verified")
+  def rocqExtractions = Seq(
+    RocqExtraction("Sorting", "Sorting.Insertion", Seq("sort")),
+    RocqExtraction("Stats", "App.Stats", Seq("minimum", "distinct"))
+  )
+
+  object test extends ScalaTests, TestModule.Utest {
+    def utestVersion = "0.9.5"
+  }
+}
