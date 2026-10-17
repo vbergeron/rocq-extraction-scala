@@ -89,3 +89,17 @@ jobs:
         run: |
           scalac -version
           opam exec -- dune build @scalac
+
+      # The build tool plugins (integrations/), tested against the
+      # extractor built above, installed outside the cached Rocq prefix
+      - name: Install the extractor for the build tool plugins
+        run: |
+          opam exec -- dune install -p rocq-extraction-scala --prefix "$RUNNER_TEMP/extractor"
+          echo "ROCQPATH=$RUNNER_TEMP/extractor/lib/coq/user-contrib" >> "$GITHUB_ENV"
+          echo "OCAMLPATH=$RUNNER_TEMP/extractor/lib:$OCAMLPATH" >> "$GITHUB_ENV"
+
+      - name: Test the core and the Mill plugin
+        working-directory: integrations
+        env:
+          ROCQ_INTEGRATION: required
+        run: ./mill __.test + mill-plugin.integration

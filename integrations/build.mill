@@ -1,0 +1,86 @@
+//| mill-version: 1.3.0
+//| mill-jvm-version: system
+// Builds the build-tool-agnostic core and the Mill plugin. The sbt plugin
+// has its own sbt build, which compiles the core's sources directly.
+package build
+
+import mill.*, scalalib.*, publish.*
+import mill.api.BuildCtx
+
+/** The Mill API the plugin is compiled against: the oldest 1.x, so that
+  * the plugin works with every Mill 1.x. */
+val millApiVersion = "1.0.6"
+/** The Scala version of `millApiVersion`. */
+val scala3 = "3.7.4"
+/** The Scala version of sbt 1.x plugins; the core's sources compile with
+  * it too (see `core`). */
+val scala212 = "2.12.21"
+val utestVersion = "0.9.5"
+/** The version of everything published from `integrations/`. */
+val integrationsVersion = BuildCtx.watchValue(os.read(BuildCtx.workspaceRoot / "VERSION").trim)
+
+trait Publish extends PublishModule {
+  def publishVersion = integrationsVersion
+  def pomSettings = PomSettings(
+    description = artifactName(),
+    organization = "io.github.vbergeron",
+    url = "https://github.com/vbergeron/rocq-extraction-scala",
+    licenses = Seq(License.`LGPL-2.1-only`),
+    versionControl = VersionControl.github("vbergeron", "rocq-extraction-scala"),
+    developers = Seq(Developer("vbergeron", "Valentin Bergeron", "https://github.com/vbergeron"))
+  )
+}
+
+/** Compiles Rocq files and runs the Scala extraction, independently of any
+  * build tool: no dependency beyond the JDK. Cross-built for Scala 3 (used
+  * by the Mill plugin, published) and 2.12, to keep the sources valid for
+  * the sbt plugin, which compiles them with sbt 1.x's Scala 2.12. */
+object core extends Cross[CoreModule](scala3, scala212)
+trait CoreModule extends CrossScalaModule, Publish {
+  def artifactName = "rocq-extraction-build-core"
+  def scalacOptions = Seq("-deprecation", "-feature")
+  object test extends ScalaTests, TestModule.Utest {
+    def utestVersion = build.utestVersion
+  }
+}
+
+/** The Mill plugin: `RocqModule` and `RocqExtractionModule`. Only Mill
+  * glue: everything else is in `core`. */
+object `mill-plugin` extends ScalaModule, Publish {
+  def scalaVersion = scala3
+  def artifactName = "mill-rocq-extraction"
+  // Names the artifact after the Mill version it is compiled for
+  def platformSuffix = "_mill1"
+  def scalacOptions = Seq("-deprecation", "-feature")
+  def moduleDeps = Seq(core(scala3))
+  def compileMvnDeps = Seq(mvn"com.lihaoyi::mill-libs:$millApiVersion")
+
+  object test extends ScalaTests, TestModule.Utest {
+    def utestVersion = build.utestVersion
+    def mvnDeps = Seq(mvn"com.lihaoyi::mill-testkit:$millApiVersion")
+  }
+
+  /** Runs Mill on small projects using the plugin. Needs `rocq` with
+    * rocq-extraction-scala on the PATH; skipped without it, unless
+    * `ROCQ_INTEGRATION=required`. */
+  object integration extends ScalaTests, TestModule.Utest {
+    def utestVersion = build.utestVersion
+    def mvnDeps = Seq(mvn"com.lihaoyi::mill-testkit:$millApiVersion")
+    def forkEnv = Task {
+      // The plugin and the core it depends on
+      val local = Seq(publishLocalTestRepo(), core(scala3).publishLocalTestRepo())
+      val repos = local.map(_.path.toNIO.toUri.toASCIIString) ++
+        Seq(Task.env.getOrElse("COURSIER_REPOSITORIES", "ivy2Local|central"))
+      Map(
+        "MILL_EXECUTABLE_PATH" -> millExecutable.assembly().path.toString,
+        "COURSIER_REPOSITORIES" -> repos.mkString("|"),
+        "PLUGIN_VERSION" -> publishVersion()
+      ) ++ Task.env.get("ROCQ_INTEGRATION").map("ROCQ_INTEGRATION" -> _)
+    }
+
+    object millExecutable extends JavaModule {
+      def mvnDeps = Seq(mvn"com.lihaoyi:mill-runner-launcher_3:$millApiVersion")
+      def mainClass = Some("mill.launcher.MillLauncherMain")
+    }
+  }
+}
